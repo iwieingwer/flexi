@@ -1,0 +1,1283 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Flexi</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Track meat and animal products in seconds. A chicken coach, honest numbers, no account.">
+<meta name="theme-color" content="#eef3fa" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1634" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Flexi">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,700;6..12,800&display=swap">
+<style>
+/* Layout: one-column phone app — top bar, scrolling content, bottom tab bar; content column max 520px.
+   Visual idea: flat Kurzgesagt-style scenes. One "pressure" value (--p, 0..1) from the last 7 days
+   moves the whole UI from soft, round and calm to sharp, hard-shadowed and warm. */
+@property --p { syntax: '<number>'; inherits: true; initial-value: 0; }
+@property --rim { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+:root{
+  --bg:#eef3fa; --sky:#dbe8f7; --surface:#ffffff; --surface-2:#e7eef8; --ink:#17214a; --ink-2:#56618c; --line:#cfd8ea;
+  --calm:#22a173; --alarm:#e04b33; --sun:#ffb938; --violet:#6553d9;
+  --hill:#8fd47a; --hill-2:#6fbf60; --stone:#a7a191;
+  --hen:#fffaf0; --hen-shade:#efd9bb; --comb:#e8483b; --beak:#ffae25; --hen-eye:#1b1f33;
+  --scrim:#0b1020;
+  --f1:#ff7aa8; --f2:#ffd23f; --f3:#8f80ff; --f4:#ffffff;
+  --c-beef:#b8442f; --c-pork:#f08ca3; --c-poultry:#f2b53a; --c-processed:#d9607a; --c-lamb:#a07ad6; --c-fish:#3fa3e0;
+  --c-egg:#f5c84c; --c-milk:#b9c6dc; --c-cheese:#e8b92e; --c-honey:#d98c1c;
+  --font-display:"Fredoka","Baloo 2",ui-rounded,"Arial Rounded MT Bold",system-ui,sans-serif;
+  --font-body:"Nunito Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --p:0;
+  --accent: color-mix(in oklab, var(--calm), var(--alarm) calc(var(--p) * 100%));
+  --ground: color-mix(in oklab, var(--bg), var(--alarm) calc(var(--p) * 7%));
+  --r: calc(26px - 23px * var(--p));
+  --r-s: calc(16px - 14px * var(--p));
+  --shadow: 0 8px 26px color-mix(in srgb, var(--ink) calc((1 - var(--p)) * 9%), transparent),
+            calc(5px * var(--p)) calc(5px * var(--p)) 0 color-mix(in srgb, var(--ink) calc(var(--p) * 85%), transparent);
+  --border-w: calc(1px + 1.5px * var(--p));
+  transition: --p 1.4s ease;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1634; --sky:#18245a; --surface:#1a2452; --surface-2:#232f64; --ink:#eef1ff; --ink-2:#a8b1dc; --line:#323e78;
+    --calm:#45d39a; --alarm:#ff6b54; --sun:#ffd27a; --violet:#9a8dff;
+    --hill:#3f9d52; --hill-2:#2f8243; --stone:#6f6a5e;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f1634; --sky:#18245a; --surface:#1a2452; --surface-2:#232f64; --ink:#eef1ff; --ink-2:#a8b1dc; --line:#323e78;
+  --calm:#45d39a; --alarm:#ff6b54; --sun:#ffd27a; --violet:#9a8dff;
+  --hill:#3f9d52; --hill-2:#2f8243; --stone:#6f6a5e;
+  color-scheme: dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--ground);color:var(--ink);font-family:var(--font-body);font-size:16px;line-height:1.45;-webkit-tap-highlight-color:transparent;overflow-x:clip}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--ground)}
+h1,h2,h3{font-family:var(--font-display);font-weight:600;line-height:1.15;margin:0;text-wrap:balance;letter-spacing:.005em}
+p{margin:0}
+button{font:inherit;color:inherit;cursor:pointer}
+a{color:var(--accent)}
+:focus-visible{outline:3px solid var(--violet);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+.muted{color:var(--ink-2)}
+.small{font-size:.84rem}
+.label{font-size:.74rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2)}
+
+/* ---------- shell ---------- */
+.shell{max-width:520px;margin:0 auto;min-height:100%;display:flex;flex-direction:column;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--ground);display:flex;align-items:center;justify-content:space-between;padding-block:12px 8px}
+.brand{font-family:var(--font-display);font-weight:600;font-size:1.45rem;display:flex;align-items:center;gap:8px}
+.brand svg{width:30px;height:30px}
+.icon-btn{border:var(--border-w) solid var(--line);background:var(--surface);width:42px;height:42px;border-radius:calc(var(--r-s) + 4px);display:grid;place-items:center}
+.icon-btn svg{width:22px;height:22px}
+main{flex:1;display:flex;flex-direction:column;gap:14px;padding-block:4px 110px}
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:20;background:color-mix(in srgb,var(--surface) 92%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-top:var(--border-w) solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);padding-left:max(8px,env(safe-area-inset-left,0px));padding-right:max(8px,env(safe-area-inset-right,0px))}
+.tabs-in{max-width:520px;margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr)}
+.tab{background:none;border:0;padding:10px 4px 9px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:.78rem;font-weight:700;color:var(--ink-2)}
+.tab svg{width:24px;height:24px}
+.tab[aria-current="page"]{color:var(--accent)}
+
+/* ---------- surfaces ---------- */
+.card{background:var(--surface);border:var(--border-w) solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.btn{border:var(--border-w) solid transparent;border-radius:calc(var(--r-s) + 6px);padding:14px 18px;font-weight:800;font-size:1rem;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:50px;transition:transform .12s ease}
+.btn:active{transform:scale(.98)}
+.btn-primary{background:var(--accent);color:#fff;box-shadow:0 6px 0 color-mix(in oklab,var(--accent) 60%,var(--ink))}
+.btn-ghost{background:var(--surface-2);color:var(--ink)}
+.btn-line{background:transparent;border-color:var(--line);color:var(--ink)}
+.btn-danger{background:transparent;border-color:var(--alarm);color:var(--alarm)}
+.btn-wide{width:100%}
+.btn svg{width:22px;height:22px}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row > .btn{flex:1 1 140px}
+
+/* ---------- scene / coach ---------- */
+.hero{padding:0;overflow:hidden;gap:0}
+.scene{background:var(--sky);position:relative}
+.scene svg{display:block;width:100%;height:auto}
+.bubble{position:relative;margin:0 14px;transform:translateY(-10px);background:var(--surface);border:var(--border-w) solid var(--line);border-radius:calc(var(--r-s) + 4px);padding:12px 14px;font-weight:600;box-shadow:var(--shadow)}
+.bubble::before{content:"";position:absolute;top:-9px;left:calc(50% - 9px);width:16px;height:16px;background:var(--surface);border-left:var(--border-w) solid var(--line);border-top:var(--border-w) solid var(--line);transform:rotate(45deg)}
+.coach-meta{display:flex;align-items:center;gap:10px;padding:2px 16px 16px}
+.coach-name{font-family:var(--font-display);font-weight:600;font-size:1.05rem;white-space:nowrap}
+.life{flex:1;height:10px;border-radius:99px;background:var(--surface-2);overflow:hidden;min-width:60px}
+.life i{display:block;height:100%;background:linear-gradient(90deg,var(--comb),var(--beak));border-radius:99px;transition:width .8s ease}
+.hen{transform-origin:60px 110px;animation:bob 2.6s ease-in-out infinite}
+.hen.happy{animation-duration:1.4s}
+.hen.worried{animation:shiver 3s ease-in-out infinite}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+@keyframes shiver{0%,90%,100%{transform:translateX(0)}92%{transform:translateX(-1.5px)}94%{transform:translateX(1.5px)}96%{transform:translateX(-1px)}}
+.flower{transform-box:fill-box;transform-origin:50% 100%;animation:grow .7s cubic-bezier(.3,1.6,.5,1) both}
+@keyframes grow{from{transform:scale(0)}to{transform:scale(1)}}
+
+/* ---------- week meter ---------- */
+.wk-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.wk-big{font-family:var(--font-display);font-size:2.1rem;font-weight:600;line-height:1}
+.wk-big small{font-size:1rem;color:var(--ink-2);font-family:var(--font-body);font-weight:700}
+.track{position:relative;height:22px;border-radius:99px;background:var(--surface-2);margin:22px 0 6px;border:var(--border-w) solid var(--line)}
+.track .fill{position:absolute;left:0;top:-1px;bottom:-1px;width:calc(min(var(--fill),1) * 100%);background:var(--accent);border-radius:99px;transition:width .9s cubic-bezier(.3,1.3,.5,1)}
+.track.over{border-right-color:var(--alarm)}
+.track.over .fill{width:calc(var(--fill) * 100%);max-width:calc(100% + 34px);background:var(--alarm);border-radius:99px 0 0 99px;clip-path:polygon(0 0,calc(100% - 10px) 0,100% 20%,calc(100% - 8px) 42%,100% 62%,calc(100% - 9px) 82%,calc(100% - 2px) 100%,0 100%);animation:strain 1.8s ease-in-out infinite}
+@keyframes strain{0%,100%{transform:translateX(0)}50%{transform:translateX(3px)}}
+.mark{position:absolute;top:-5px;bottom:-5px;width:0;border-left:2px dashed var(--ink-2);font-style:normal}
+.mark span{position:absolute;top:-19px;transform:translateX(-50%);font-size:.7rem;font-weight:800;color:var(--ink-2);white-space:nowrap}
+.mark.max{border-left:2px solid var(--alarm)}
+.mark.max span{color:var(--alarm);transform:translateX(calc(-100% + 2px))}
+.mark.goal{border-left-color:var(--calm)}
+.mark.goal span{color:var(--calm)}
+.wk-foot{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:.84rem;color:var(--ink-2)}
+.days{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:4px}
+.day{background:var(--surface-2);border:var(--border-w) solid transparent;border-radius:var(--r-s);padding:8px 2px 6px;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0}
+.day.today{border-color:var(--accent)}
+.day .dn{font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-2)}
+.day .col{height:34px;width:100%;display:flex;align-items:flex-end;justify-content:center}
+.day .col i{display:block;width:12px;border-radius:4px 4px 2px 2px;background:var(--accent)}
+.day .col i.hi{background:var(--alarm)}
+.day .col svg{width:22px;height:22px}
+.day .dg{font-size:.72rem;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+
+.catch{display:flex;flex-direction:row;flex-wrap:wrap;align-items:center;gap:10px;background:color-mix(in oklab,var(--violet) 12%,var(--surface));border-color:color-mix(in oklab,var(--violet) 35%,var(--line))}
+.catch p{flex:1 1 180px;font-weight:700}
+.catch .row{flex:1 1 220px;flex-wrap:nowrap}
+.catch .row > .btn{flex:1 1 0}
+.catch .btn{min-height:42px;padding:9px 12px;font-size:.92rem}
+.note{display:flex;gap:12px;align-items:flex-start}
+.note svg{flex:none;width:26px;height:26px;color:var(--violet)}
+.note p{font-size:.92rem}
+
+/* ---------- sheet ---------- */
+.scrim{position:fixed;inset:0;z-index:40;background:color-mix(in srgb,var(--scrim) 50%,transparent);animation:fade .2s ease}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:41;max-height:calc(100% - 28px - env(safe-area-inset-top,0px));display:flex;flex-direction:column;background:var(--surface);border-radius:calc(var(--r) + 4px) calc(var(--r) + 4px) 0 0;border-top:var(--border-w) solid var(--line);animation:up .28s cubic-bezier(.2,1,.4,1);padding-bottom:env(safe-area-inset-bottom,0px)}
+.sheet-in{max-width:520px;width:100%;margin:0 auto;display:flex;flex-direction:column;min-height:0;flex:1;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.sheet-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-block:14px 10px}
+.sheet-head::before{content:"";position:absolute;top:7px;left:calc(50% - 20px);width:40px;height:4px;border-radius:9px;background:var(--line)}
+.sheet-body{overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:14px;padding-block:2px 16px;min-height:0;flex:1}
+.sheet-foot{padding-block:10px 14px;border-top:1px solid var(--line)}
+@keyframes up{from{transform:translateY(40%);opacity:0}to{transform:none;opacity:1}}
+@keyframes fade{from{opacity:0}}
+.chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;border:var(--border-w) solid var(--line);background:var(--surface);border-radius:99px;padding:8px 14px;font-weight:700;font-size:.92rem;white-space:nowrap}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.search{display:flex;align-items:center;gap:8px;border:var(--border-w) solid var(--line);background:var(--surface-2);border-radius:calc(var(--r-s) + 4px);padding:0 12px}
+.search svg{width:20px;height:20px;color:var(--ink-2);flex:none}
+.search input{flex:1;min-width:0;border:0;background:transparent;font:inherit;font-size:1rem;padding:13px 0;color:var(--ink);outline:none}
+.list{display:flex;flex-direction:column;gap:6px}
+.food{display:flex;align-items:center;gap:12px;border:var(--border-w) solid var(--line);background:var(--surface);border-radius:var(--r-s);padding:10px 12px;text-align:left;width:100%}
+.food .fn{flex:1;min-width:0;font-weight:700}
+.food .fi{display:block;font-size:.8rem;font-weight:600;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.food .plus{width:30px;height:30px;border-radius:99px;background:var(--surface-2);display:grid;place-items:center;flex:none;font-weight:800}
+.dot{width:10px;height:10px;border-radius:99px;flex:none;display:inline-block}
+.cats{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
+.cat{display:flex;align-items:center;gap:8px;border:var(--border-w) solid var(--line);background:var(--surface);border-radius:var(--r-s);padding:12px;font-weight:700;text-align:left}
+.tray{display:flex;flex-direction:column;gap:8px;background:var(--surface-2);border-radius:var(--r);padding:12px}
+.tray-item{display:flex;flex-direction:column;gap:6px;background:var(--surface);border-radius:var(--r-s);padding:10px 12px}
+.tray-top{display:flex;align-items:center;justify-content:space-between;gap:8px;font-weight:800}
+.x{border:0;background:none;color:var(--ink-2);width:32px;height:32px;border-radius:99px;display:grid;place-items:center;flex:none}
+.x svg{width:18px;height:18px}
+.comp{display:flex;align-items:center;gap:8px}
+.comp .cn{flex:1;min-width:0;font-weight:600;font-size:.92rem;display:flex;align-items:center;gap:8px}
+.stepper{display:flex;align-items:center;gap:2px;background:var(--surface-2);border-radius:99px;padding:3px}
+.stepper button{width:34px;height:34px;border:0;border-radius:99px;background:var(--surface);font-weight:800;font-size:1.1rem}
+.stepper output{min-width:66px;text-align:center;font-weight:800;font-variant-numeric:tabular-nums;font-size:.92rem}
+
+/* ---------- onboarding ---------- */
+.ob{max-width:520px;margin:0 auto;min-height:100%;display:flex;flex-direction:column;gap:18px;padding-block:22px 28px;padding-left:max(20px,env(safe-area-inset-left,0px));padding-right:max(20px,env(safe-area-inset-right,0px))}
+.ob h1{font-size:clamp(2rem,9vw,2.7rem)}
+.ob .lead{font-size:1.06rem;color:var(--ink-2)}
+.ob-steps{display:flex;gap:6px}
+.ob-steps i{height:5px;flex:1;border-radius:9px;background:var(--line)}
+.ob-steps i.on{background:var(--accent)}
+.ob-art{border-radius:var(--r);overflow:hidden;background:var(--sky);border:var(--border-w) solid var(--line)}
+.ob-art svg{display:block;width:100%;height:auto}
+.ob-actions{margin-top:auto;display:flex;flex-direction:column;gap:10px}
+.choice{display:flex;flex-direction:column;gap:4px;text-align:left;border:2px solid var(--line);background:var(--surface);border-radius:var(--r);padding:16px 18px;width:100%}
+.choice b{font-family:var(--font-display);font-weight:600;font-size:1.25rem}
+.choice span{color:var(--ink-2);font-size:.95rem}
+.choice[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 25%,transparent)}
+.rim{border:3px solid transparent;background:linear-gradient(var(--surface),var(--surface)) padding-box,conic-gradient(from var(--rim),#ff6b6b,#ffb938,#5cc46b,#3fb6e8,#8f80ff,#ff6bb5,#ff6b6b) border-box;animation:rim 5s linear infinite}
+.rim[aria-pressed="true"]{border-color:transparent}
+@keyframes rim{to{--rim:360deg}}
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:4px;background:var(--surface-2);padding:4px;border-radius:calc(var(--r-s) + 6px)}
+.seg button{border:0;background:transparent;border-radius:calc(var(--r-s) + 3px);padding:10px 8px;font-weight:800;font-size:.92rem}
+.seg button[aria-pressed="true"]{background:var(--surface);box-shadow:var(--shadow);color:var(--accent)}
+.steps-list{display:flex;flex-direction:column;gap:8px;padding-left:1.2em;margin:0}
+
+/* ---------- insights ---------- */
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stat{background:var(--surface);border:var(--border-w) solid var(--line);border-radius:var(--r-s);padding:12px 10px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.stat b{font-family:var(--font-display);font-weight:600;font-size:1.4rem;line-height:1.1;font-variant-numeric:tabular-nums}
+.stat span{font-size:.74rem;font-weight:700;color:var(--ink-2);line-height:1.25}
+.chart{position:relative}
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.runner{position:absolute;bottom:72px;left:0;width:56px;pointer-events:none;animation:run 3.6s linear forwards}
+.runner svg{animation:hop .3s ease-in-out infinite alternate}
+@keyframes run{from{transform:translateX(-60px)}to{transform:translateX(min(560px,110vw))}}
+@keyframes hop{from{transform:translateY(0)}to{transform:translateY(-6px)}}
+.bars{display:flex;flex-direction:column;gap:10px}
+.cmp{display:grid;grid-template-columns:5.5rem 1fr auto;gap:10px;align-items:center;font-weight:700;font-size:.92rem}
+.cmp .bar{height:14px;border-radius:99px;background:var(--surface-2);overflow:hidden}
+.cmp .bar i{display:block;height:100%;border-radius:99px}
+.kv{display:flex;flex-direction:column}
+.kv div{display:flex;justify-content:space-between;gap:12px;padding-block:9px;border-bottom:1px solid var(--line)}
+.kv div:last-child{border-bottom:0}
+.kv dt{display:flex;align-items:center;gap:8px;font-weight:600}
+.kv dd{margin:0;font-weight:800;font-variant-numeric:tabular-nums;text-align:right}
+.memorial{display:flex;flex-direction:column;gap:8px}
+.memorial div{display:flex;align-items:center;gap:10px}
+.memorial svg{width:28px;height:28px;flex:none}
+
+/* ---------- why ---------- */
+.why-head{display:flex;flex-direction:column;gap:8px;padding:6px 2px 2px}
+.why-head h1{font-size:2rem}
+.why-card h2{font-size:1.3rem;display:flex;align-items:center;gap:10px}
+.why-card ul{margin:0;padding-left:1.15em;display:flex;flex-direction:column;gap:7px}
+.why-card li::marker{color:var(--accent)}
+.co2tag{align-self:flex-start;font-size:.8rem;font-weight:800;padding:4px 10px;border-radius:99px;background:var(--surface-2);color:var(--ink-2)}
+.links{display:flex;flex-direction:column;gap:8px}
+.links a{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;border-radius:var(--r-s);border:var(--border-w) solid var(--line);background:var(--surface);color:var(--ink);text-decoration:none;font-weight:700}
+.links a span{font-weight:600;font-size:.84rem;color:var(--ink-2);display:block}
+.links a svg{width:18px;height:18px;flex:none;color:var(--ink-2)}
+
+/* ---------- settings ---------- */
+.set-sec{display:flex;flex-direction:column;gap:10px}
+.set-sec h2{font-size:1.1rem}
+textarea.dump{width:100%;min-height:90px;font:12px/1.4 ui-monospace,Menlo,monospace;background:var(--surface-2);color:var(--ink);border:1px solid var(--line);border-radius:var(--r-s);padding:10px}
+
+/* ---------- loss modal ---------- */
+.loss{position:fixed;inset:0;z-index:50;display:grid;place-items:center;padding:20px;background:color-mix(in srgb,var(--scrim) 78%,transparent);animation:fade .5s ease}
+.loss-card{max-width:420px;width:100%;background:var(--surface);border-radius:var(--r);overflow:hidden;display:flex;flex-direction:column;box-shadow:var(--shadow)}
+.loss-card .scene{background:var(--sky)}
+.loss-body{padding:18px;display:flex;flex-direction:column;gap:12px}
+.loss-body h2{font-size:1.7rem}
+.feather{animation:drift 4s ease-in-out infinite;transform-box:fill-box;transform-origin:50% 0}
+@keyframes drift{0%,100%{transform:rotate(-14deg) translateY(0)}50%{transform:rotate(10deg) translateY(4px)}}
+
+.toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:60;background:var(--ink);color:var(--surface);padding:10px 16px;border-radius:99px;font-weight:700;font-size:.92rem;box-shadow:var(--shadow);max-width:calc(100% - 32px);text-align:center;animation:fade .2s ease}
+.install-card{flex-direction:row;align-items:center;gap:12px}
+.install-card svg.ph{width:40px;height:40px;flex:none;color:var(--accent)}
+.install-card .txt{flex:1;min-width:0}
+.install-card .btn{min-height:42px;padding:8px 14px;font-size:.9rem}
+
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
+  .runner{display:none}
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="layer"></div>
+
+<script>
+'use strict';
+/* =========================================================================
+   Flexi v1 — data + i18n live in plain objects so new languages and foods
+   are one edit each. Everything is stored in localStorage on the device.
+   ========================================================================= */
+
+const KEY = 'flexi.v1';
+const GUIDE = 225;          // Austrian guideline ≈ 32 g meat/day (AGES 2024)
+const MAXG = 600;           // upper boundary shown on the meter (old DGE upper limit)
+const BIRD_G = 1300;        // ≈ edible meat from one broiler chicken
+const AT_AVG_WEEK = 1125;   // Statistik Austria: 58.5 kg meat per person in 2025
+const AT_AVG_CO2_WEEK = 17; // rough: AT meat mix × CO2 factors below
+
+/* CO2: kg CO2e per kg food, global medians (Poore & Nemecek 2018, Our World in Data).
+   Beef uses the lower dairy-herd value → conservative. perAnimal: grams of food per animal (rough). */
+const CATS = {
+  beef:      {group:'meat',  co2:33.3, perAnimal:250000, animal:'cattle', def:150, step:10},
+  pork:      {group:'meat',  co2:12.3, perAnimal:80000,  animal:'pig',    def:150, step:10},
+  poultry:   {group:'meat',  co2:9.9,  perAnimal:BIRD_G, animal:'chicken',def:150, step:10},
+  processed: {group:'meat',  co2:12.3, perAnimal:80000,  animal:'pig',    def:50,  step:10},
+  lamb:      {group:'meat',  co2:39.7, perAnimal:18000,  animal:'sheep',  def:150, step:10},
+  fish:      {group:'fish',  co2:13.6, perAnimal:400,    animal:'fish',   def:150, step:10},
+  egg:       {group:'other', co2:4.7,  unit:'egg', per:60, def:60, step:60},
+  milk:      {group:'other', co2:3.2,  unit:'ml', def:200, step:50},
+  cheese:    {group:'other', co2:23.9, def:30, step:10},
+  honey:     {group:'other', co2:null, def:20, step:10},
+};
+const CAT_ORDER = ['beef','pork','poultry','processed','lamb','fish','egg','milk','cheese','honey'];
+const BASELINES = { // weekly eggs & dairy for "meat & fish" mode (grams)
+  low:  {egg:60,  milk:700,  cheese:60},
+  avg:  {egg:180, milk:1750, cheese:250},
+  high: {egg:360, milk:3500, cheese:450},
+};
+const NAMES = ['Henni','Gretl','Resi','Frieda','Lotte','Mitzi','Fanni','Liesl','Rosl','Vroni','Burgi','Wally'];
+
+/* Foods: [id, english, german, [[category, grams], …]] */
+const FOODS = [
+  ['burger','Burger','Burger',[['beef',120]]],
+  ['cheeseburger','Cheeseburger','Cheeseburger',[['beef',120],['cheese',20]]],
+  ['chickenburger','Chicken burger','Chicken-Burger',[['poultry',110]]],
+  ['schnitzelpork','Schnitzel (pork)','Schnitzel (Schwein)',[['pork',150],['egg',15]]],
+  ['wiener','Wiener Schnitzel (veal)','Wiener Schnitzel (Kalb)',[['beef',150],['egg',15]]],
+  ['backhendl','Fried chicken (Backhendl)','Backhendl',[['poultry',180],['egg',15]]],
+  ['cordon','Cordon bleu','Cordon bleu',[['pork',150],['processed',30],['cheese',30]]],
+  ['steak','Steak','Steak',[['beef',200]]],
+  ['gulasch','Goulash','Gulasch',[['beef',150]]],
+  ['tafelspitz','Tafelspitz (boiled beef)','Tafelspitz',[['beef',180]]],
+  ['schweinsbraten','Roast pork','Schweinsbraten',[['pork',200]]],
+  ['doner','Kebab (veal/beef)','Kebab (Kalb/Rind)',[['beef',120]]],
+  ['chickendoner','Chicken kebab','Hühner-Kebab',[['poultry',120]]],
+  ['wings','Chicken wings (6)','Chicken Wings (6 Stk.)',[['poultry',150]]],
+  ['chickenbreast','Chicken breast','Hühnerbrust',[['poultry',150]]],
+  ['nuggets','Chicken nuggets (6)','Chicken Nuggets (6 Stk.)',[['poultry',100]]],
+  ['hamsandwich','Ham sandwich','Schinkensemmel',[['processed',40]]],
+  ['salamisandwich','Salami sandwich','Wurst- oder Salamisemmel',[['processed',50]]],
+  ['leberkaese','Leberkäse roll','Leberkässemmel',[['processed',120]]],
+  ['wurstel','Sausages (pair)','Würstel (Paar)',[['processed',100]]],
+  ['kaesekrainer','Käsekrainer','Käsekrainer',[['processed',120],['cheese',15]]],
+  ['bratwurst','Bratwurst','Bratwurst',[['processed',120]]],
+  ['pizzasalami','Pizza salami','Pizza Salami',[['processed',40],['cheese',80]]],
+  ['pizzaham','Pizza with ham','Pizza mit Schinken',[['processed',50],['cheese',80]]],
+  ['bolognese','Spaghetti bolognese','Spaghetti Bolognese',[['beef',50],['pork',50],['cheese',10]]],
+  ['lasagne','Lasagne','Lasagne',[['beef',60],['pork',40],['cheese',40],['milk',80]]],
+  ['carbonara','Pasta carbonara','Pasta Carbonara',[['processed',50],['egg',60],['cheese',20]]],
+  ['bacon','Bacon & eggs','Eierspeis mit Speck',[['processed',40],['egg',120]]],
+  ['lamb','Lamb chops','Lammkoteletts',[['lamb',150]]],
+  ['fishfillet','Fish fillet','Fischfilet',[['fish',150]]],
+  ['salmon','Salmon','Lachs',[['fish',150]]],
+  ['trout','Trout','Forelle',[['fish',200]]],
+  ['fishsticks','Fish fingers (5)','Fischstäbchen (5 Stk.)',[['fish',100]]],
+  ['sushi','Sushi (8 pieces)','Sushi (8 Stk.)',[['fish',80]]],
+  ['tuna','Tuna sandwich','Thunfisch-Sandwich',[['fish',50]]],
+  ['cheesesandwich','Cheese sandwich','Käsesemmel',[['cheese',40]]],
+  ['pizzamarg','Pizza margherita','Pizza Margherita',[['cheese',100]]],
+  ['eggs2','Fried eggs (2)','Spiegeleier (2)',[['egg',120]]],
+  ['scrambled','Scrambled eggs','Eierspeis',[['egg',120]]],
+  ['omelette','Omelette','Omelett',[['egg',180],['cheese',20]]],
+  ['boiledegg','Boiled egg','Gekochtes Ei',[['egg',60]]],
+  ['pancakes','Pancakes (2)','Palatschinken (2)',[['egg',60],['milk',150]]],
+  ['kaiserschmarrn','Kaiserschmarrn','Kaiserschmarrn',[['egg',120],['milk',200]]],
+  ['coffee','Coffee with milk','Kaffee mit Milch',[['milk',50]]],
+  ['cappuccino','Cappuccino','Cappuccino / Melange',[['milk',120]]],
+  ['latte','Latte macchiato','Latte macchiato',[['milk',200]]],
+  ['milkglass','Glass of milk','Glas Milch',[['milk',250]]],
+  ['yogurt','Yogurt','Joghurt',[['milk',150]]],
+  ['muesli','Muesli with milk','Müsli mit Milch',[['milk',200]]],
+  ['cheeseslice','Slice of cheese','Scheibe Käse',[['cheese',20]]],
+  ['cake','Slice of cake','Stück Kuchen',[['egg',30],['milk',30]]],
+  ['icecream','Ice cream (2 scoops)','Eis (2 Kugeln)',[['milk',100]]],
+  ['honey','Honey (1 tbsp)','Honig (1 EL)',[['honey',20]]],
+].map(([id,en,de,items])=>({id,en,de,items}));
+
+/* ------------------------------- strings ------------------------------- */
+const T = {
+en:{
+  locale:'en-GB',
+  cat:{beef:'Beef & veal',pork:'Pork',poultry:'Chicken & poultry',processed:'Ham & sausage',lamb:'Lamb',fish:'Fish & seafood',egg:'Eggs',milk:'Milk & yogurt',cheese:'Cheese',honey:'Honey'},
+  catShort:{beef:'Beef',pork:'Pork',poultry:'Chicken',processed:'Ham & sausage',lamb:'Lamb',fish:'Fish',egg:'Eggs',milk:'Milk',cheese:'Cheese',honey:'Honey'},
+  eggUnit:n=>n===1?'1 egg':`${n} eggs`,
+  obWelcomeTitle:'Eat less meat.<br>One meal at a time.',
+  obWelcomeText:'Log meals with meat or fish, for example in the evening. Days you don’t log count as meat-free. No account, and your entries stay on this phone.',
+  start:'Get started', next:'Continue', back:'Back', later:'Not now', done:'Done', cancel:'Cancel', save:'Save', close:'Close',
+  obGoalTitle:'What do you want to track?',
+  goalMeat:'Meat & fish', goalMeatDesc:'For eating less meat, or going vegetarian.',
+  goalAll:'All animal products', goalAllDesc:'Also eggs, dairy and honey. For a vegan goal.',
+  obBaseTitle:'How many eggs and dairy products do you have in a normal week?',
+  obBaseText:'Only used to estimate your CO2 footprint. You can change it later.',
+  base:{low:['Little','About 1 egg, dairy now and then'],avg:['Average','About 3 eggs, dairy every day'],high:['A lot','6 or more eggs, dairy with most meals']},
+  obCoachTitle:'Meet your coach.',
+  obCoachText:n=>`This is ${n}. She cheers you on and keeps an eye on your week.`,
+  obCoachRule:n=>`One chicken gives about 1.3 kg of meat. Each time you’ve eaten that much chicken, ${n} is gone and a new chicken takes over.`,
+  obCoachOk:n=>`Hi, ${n}`,
+  obInstallTitle:'Put Flexi on your home screen',
+  obInstallText:'It then opens like an app. It also protects your entries: browsers can delete data of websites you rarely visit.',
+  installBtn:'Add to home screen',
+  installAndroid:'Tap the ⋮ menu in Chrome, then “Add to home screen” or “Install app”.',
+  installIos:['Tap the Share button at the bottom of Safari.','Scroll down and tap “Add to Home Screen”.','Tap “Add”.'],
+  installDone:'Flexi is on your home screen.',
+  installCardTitle:'Add Flexi to your home screen',
+  installCardText:'Opens like an app and keeps your entries safer.',
+  navHome:'Today', navInsights:'Insights', navWhy:'Why?', settings:'Settings',
+  last7:'Last 7 days', meat:'meat',
+  guideline:'Upper limit', yourTarget:'Your next step', lowerBetter:'Lower is better.', max:'600 g',
+  plusFish:g=>`plus ${g} g fish`, plusOther:g=>`plus ${g} g eggs & dairy`,
+  logBtn:'Log what I ate',
+  catch:d=>`${d}: no meat, right?`, catchYes:'Yes, none', catchNo:'I ate some',
+  today:'Today', yesterday:'Yesterday',
+  life:n=>`${n}’s life`,
+  lifeLeft:g=>`${g} g of chicken left`,
+  msgNew:n=>`Hi, I’m ${n}! When you eat meat or fish, log it here. Days you don’t log count as meat-free.`,
+  msgNewAll:n=>`Hi, I’m ${n}! When you eat something from an animal, log it here. Days you don’t log count as free of it.`,
+  msgLogged:'Got it. Thanks for being honest.',
+  msgOverMax:g=>`${g} g of meat in 7 days. That’s more than twice the guideline. Every meal without meat brings it down.`,
+  msgOver:(g,d)=>`${g} g in 7 days, ${d} g over the limit. A few meat-free days will bring it down.`,
+  msgStreak:n=>n===1?'No meat logged yesterday. Nice!':`No meat logged in ${n} days. Nice!`,
+  msgBetter:d=>`${d} g less meat than the 7 days before. That’s real progress!`,
+  msgUnder:(g,t)=>`${g} g in 7 days, under the ${t} g limit. Every meal without meat makes it even better.`,
+  msgZero:'No meat in 7 days. I’m very relaxed right now.',
+  msgTargetDown:t=>`You stayed under the limit last week. Let’s go a bit lower: ${t} g.`,
+  b12:'You’ve logged very few animal products for two weeks. If you keep it up, you need a reliable source of vitamin B12, usually a supplement. Ask your doctor or pharmacist which one suits you.',
+  logTitle:'What did you eat?',
+  searchPh:'Search: burger, Schnitzel, eggs …',
+  recent:'Recent', common:'Common', orCat:'Or pick a category',
+  noResults:'Nothing found. Pick a category instead.',
+  adding:'Adding',
+  saveN:n=>n===1?'Save 1 item':`Save ${n} items`,
+  pickFirst:'Pick something first',
+  saved:'Saved',
+  dayEmpty:'Nothing logged. This day counts as meat-free.',
+  dayEmptyAll:'Nothing logged. This day counts as free of animal products.',
+  addForDay:'Add something for this day',
+  removed:'Entry removed',
+  delete:'Delete',
+  lossTitle:n=>`${n} is gone.`,
+  lossText:(n,m)=>`Since ${n} became your coach, you’ve eaten about 1.3 kg of chicken. That’s roughly one chicken’s life. ${m} takes over now.`,
+  lossOk:m=>`Hi, ${m}`,
+  insTitle:'Insights',
+  weeks8:'Meat per week',
+  chartLegend:'Dashed: upper limit 225 g. Red: 600 g. Sprouts mark weeks under your limit. Lower is better.',
+  avg4:'Average per week, last 4 weeks',
+  co2m:'kg CO2e, last 30 days',
+  animalsStart:'animals since you started',
+  vsAt:'You and Austria',
+  you7:'You', atAvg:'Austria',
+  vsAtNote:'Austrians ate 58.5 kg of meat per person in 2025, about 1,125 g a week (Statistik Austria).',
+  animalsTitle:'Animals behind your food',
+  animalsNote:'Since you started. Rough values: one chicken ≈ 1.3 kg meat, one pig ≈ 80 kg, one cow ≈ 250 kg.',
+  an:{chicken:'Chickens',pig:'Pigs',cattle:'Cattle',sheep:'Sheep',fish:'Fish (rough)',hen:'Laying-hen days'},
+  co2Title:'CO2 footprint, last 30 days',
+  co2From:{meat:'Meat',fish:'Fish',other:'Eggs & dairy',base:'Eggs & dairy (estimate)'},
+  co2Total:'Total',
+  co2Compare:k=>`An average Austrian causes about ${k} kg CO2e a month from meat alone.`,
+  co2Note:'Global median values (Poore & Nemecek 2018, Our World in Data). Beef uses the lower dairy-herd value, so this is a conservative estimate.',
+  healthTitle:'Health',
+  health:[
+    'Austria’s 2024 guidelines suggest at most 1 portion of meat, 1 of fish and 1 more of either per week. That is about 225 g of meat. Less is fine.',
+    'Red meat and sausages are best eaten rarely. Processed meat is linked to bowel cancer.',
+    'If you eat no or very few animal products, take vitamin B12. Iron, iodine and omega-3 are also worth a look.',
+    'Flexi gives general information, not medical advice.',
+  ],
+  memorialTitle:'Your coaches',
+  memorialNow:n=>`${n}, coaching now`,
+  memorialGone:(n,a,b)=>`${n}, ${a} – ${b}`,
+  whyTitle:'Why eat less?',
+  whyLead:'What happens before food from animals reaches your plate. Short, factual, without gore. Eating less of any of these helps, and you don’t have to be perfect.',
+  co2PerKg:k=>`≈ ${k} kg CO2e per kg`,
+  whyLinks:'Learn more',
+  links:[
+    ['Kurzgesagt videos about meat','Animated, balanced, well sourced','https://www.youtube.com/@kurzgesagt/search?query=meat'],
+    ['Environmental impacts of food','Our World in Data','https://ourworldindata.org/environmental-impacts-of-food'],
+    ['Austrian dietary guidelines','gesundheit.gv.at','https://www.gesundheit.gv.at/leben/ernaehrung/info/oesterreichische-ernaehrungspyramide/ernaerungspyramide-gesunder-teller.html'],
+    ['VIER PFOTEN','Animal welfare organisation, Austria','https://www.vier-pfoten.at/'],
+  ],
+  share:'Share Flexi with a friend', shareText:'I track my meat with Flexi. Free, no account:',
+  copied:'Link copied',
+  why:[
+    {cat:'poultry',title:'Chicken meat',pts:[
+      'Meat chickens are bred to grow so fast that they reach slaughter weight after about 5 to 7 weeks.',
+      'The fast growth strains their legs and hearts. Near the end, many birds spend most of their time sitting because walking is hard.',
+      'One chicken gives roughly 1.3 kg of meat. Per kilo, chicken involves far more animals than pork or beef.']},
+    {cat:'egg',title:'Eggs',pts:[
+      'Laying hens are bred to lay around 300 eggs a year. Their wild ancestor lays only a small fraction of that.',
+      'Making that much eggshell takes calcium from their bones. Broken keel bones are common.',
+      'Male chicks of laying breeds grow too slowly for meat. For decades they were killed right after hatching. Germany banned this in 2022; elsewhere sexing in the egg or raising the brothers is replacing it.',
+      'Hens are usually slaughtered after about 1 to 1.5 years, when they lay less.']},
+    {cat:'pork',title:'Pork',pts:[
+      'Pigs are curious and social animals that do well in many intelligence tests.',
+      'In the EU, a pig of 85 to 110 kg may legally be kept on 0.65 m² of floor space.',
+      'Most pigs are slaughtered at about six months old. Pork is the meat Austrians eat most.']},
+    {cat:'beef',title:'Beef',pts:[
+      'Beef has the largest climate footprint of common foods. Cattle produce methane while digesting.',
+      'Even counted conservatively, a kilo of beef causes about three times the CO2 of chicken or pork.',
+      'Many Austrian cattle graze on grassland that can’t grow crops. That lowers some of the impact, not the methane.']},
+    {cat:'milk',title:'Milk & cheese',pts:[
+      'Cows only give milk after giving birth, so dairy cows are made pregnant about once a year.',
+      'Calves are usually separated from their mothers within days.',
+      'Male calves can’t give milk. Many are fattened for meat, and some are exported abroad.',
+      'Cheese is concentrated milk, which is why a kilo of cheese causes more CO2 than a kilo of pork.']},
+    {cat:'fish',title:'Fish',pts:[
+      'More than a third of the world’s assessed fish stocks are overfished.',
+      'Nets also catch other animals, from dolphins to turtles. This is called bycatch.',
+      'Farmed fish are often fed fishmeal made from wild fish.']},
+  ],
+  setLang:'Language', setMode:'What you track', setBase:'Your usual eggs & dairy',
+  setInstall:'Home screen', installedAlready:'Flexi is installed on this device.',
+  setData:'Your data',
+  dataNote:'Your entries are stored only in this browser on this device. Export them now and then as a backup.',
+  exportFile:'Download backup', copyData:'Copy data', importFile:'Restore backup',
+  importQ:n=>`Replace your current data with this backup (${n} entries)?`, importOk:'Replace', imported:'Backup restored', importBad:'This file isn’t a Flexi backup.',
+  dataCopied:'Data copied', copyFail:'Copying didn’t work. Select the text below and copy it.',
+  reset:'Delete all data', resetConfirm:'Tap again to delete everything', resetDone:'All data deleted',
+  about:'About',
+  aboutText:'Flexi is free, has no ads and no account. Sources: Austrian dietary guidelines (AGES 2024), Statistik Austria food supply balances 2025, Poore & Nemecek 2018 via Our World in Data.',
+  feedback:'Ideas or mistakes? Tell the developer.',
+},
+de:{
+  locale:'de-AT',
+  cat:{beef:'Rind & Kalb',pork:'Schwein',poultry:'Huhn & Geflügel',processed:'Schinken & Wurst',lamb:'Lamm',fish:'Fisch & Meeresfrüchte',egg:'Eier',milk:'Milch & Joghurt',cheese:'Käse',honey:'Honig'},
+  catShort:{beef:'Rind',pork:'Schwein',poultry:'Huhn',processed:'Schinken & Wurst',lamb:'Lamm',fish:'Fisch',egg:'Eier',milk:'Milch',cheese:'Käse',honey:'Honig'},
+  eggUnit:n=>n===1?'1 Ei':`${n} Eier`,
+  obWelcomeTitle:'Weniger Fleisch.<br>Eine Mahlzeit nach der anderen.',
+  obWelcomeText:'Trag Mahlzeiten mit Fleisch oder Fisch ein, zum Beispiel am Abend. Tage ohne Eintrag zählen als fleischfrei. Kein Konto, deine Daten bleiben auf diesem Handy.',
+  start:'Los geht’s', next:'Weiter', back:'Zurück', later:'Jetzt nicht', done:'Fertig', cancel:'Abbrechen', save:'Speichern', close:'Schließen',
+  obGoalTitle:'Was möchtest du mitzählen?',
+  goalMeat:'Fleisch & Fisch', goalMeatDesc:'Um weniger Fleisch zu essen oder vegetarisch zu werden.',
+  goalAll:'Alle tierischen Produkte', goalAllDesc:'Auch Eier, Milchprodukte und Honig. Für ein veganes Ziel.',
+  obBaseTitle:'Wie viele Eier und Milchprodukte isst du in einer normalen Woche?',
+  obBaseText:'Nur für die Schätzung deines CO2-Fußabdrucks. Du kannst es später ändern.',
+  base:{low:['Wenig','Etwa 1 Ei, ab und zu Milchprodukte'],avg:['Durchschnittlich','Etwa 3 Eier, täglich Milchprodukte'],high:['Viel','6 oder mehr Eier, Milchprodukte zu fast jeder Mahlzeit']},
+  obCoachTitle:'Das ist dein Coach.',
+  obCoachText:n=>`Das ist ${n}. Sie feuert dich an und behält deine Woche im Blick.`,
+  obCoachRule:n=>`Ein Huhn liefert etwa 1,3 kg Fleisch. Jedes Mal, wenn du so viel Huhn gegessen hast, ist ${n} weg und ein neues Huhn übernimmt.`,
+  obCoachOk:n=>`Hallo, ${n}`,
+  obInstallTitle:'Leg Flexi auf deinen Startbildschirm',
+  obInstallText:'Dann öffnet es sich wie eine App. Außerdem schützt es deine Einträge: Browser löschen manchmal Daten von selten besuchten Webseiten.',
+  installBtn:'Zum Startbildschirm hinzufügen',
+  installAndroid:'Tippe in Chrome auf das ⋮-Menü und dann auf „Zum Startbildschirm hinzufügen“ oder „App installieren“.',
+  installIos:['Tippe in Safari unten auf den Teilen-Button.','Scrolle nach unten und tippe auf „Zum Home-Bildschirm“.','Tippe auf „Hinzufügen“.'],
+  installDone:'Flexi ist auf deinem Startbildschirm.',
+  installCardTitle:'Flexi auf den Startbildschirm',
+  installCardText:'Öffnet sich wie eine App und schützt deine Einträge besser.',
+  navHome:'Heute', navInsights:'Statistik', navWhy:'Warum?', settings:'Einstellungen',
+  last7:'Letzte 7 Tage', meat:'Fleisch',
+  guideline:'Obergrenze', yourTarget:'Dein nächster Schritt', lowerBetter:'Weniger ist besser.', max:'600 g',
+  plusFish:g=>`dazu ${g} g Fisch`, plusOther:g=>`dazu ${g} g Eier & Milchprodukte`,
+  logBtn:'Eintragen, was ich gegessen habe',
+  catch:d=>`${d}: kein Fleisch, oder?`, catchYes:'Stimmt', catchNo:'Doch, etwas',
+  today:'Heute', yesterday:'Gestern',
+  life:n=>`${n}s Leben`,
+  lifeLeft:g=>`noch ${g} g Huhn`,
+  msgNew:n=>`Hallo, ich bin ${n}! Wenn du Fleisch oder Fisch isst, trag es hier ein. Tage ohne Eintrag zählen als fleischfrei.`,
+  msgNewAll:n=>`Hallo, ich bin ${n}! Wenn du etwas vom Tier isst, trag es hier ein. Tage ohne Eintrag zählen als tierfrei.`,
+  msgLogged:'Notiert. Danke für deine Ehrlichkeit.',
+  msgOverMax:g=>`${g} g Fleisch in 7 Tagen. Das ist mehr als doppelt so viel wie empfohlen. Jede Mahlzeit ohne Fleisch bringt dich runter.`,
+  msgOver:(g,d)=>`${g} g in 7 Tagen, ${d} g über der Grenze. Ein paar fleischfreie Tage bringen dich wieder runter.`,
+  msgStreak:n=>n===1?'Gestern kein Fleisch eingetragen. Super!':`Seit ${n} Tagen kein Fleisch eingetragen. Super!`,
+  msgBetter:d=>`${d} g weniger Fleisch als in den 7 Tagen davor. Das ist echter Fortschritt!`,
+  msgUnder:(g,t)=>`${g} g in 7 Tagen, unter der Grenze von ${t} g. Jede Mahlzeit ohne Fleisch macht es noch besser.`,
+  msgZero:'Seit 7 Tagen kein Fleisch. Ich bin gerade sehr entspannt.',
+  msgTargetDown:t=>`Letzte Woche warst du unter der Grenze. Gehen wir etwas tiefer: ${t} g.`,
+  b12:'Du hast seit zwei Wochen kaum tierische Produkte eingetragen. Wenn du dabei bleibst, brauchst du eine verlässliche Vitamin-B12-Quelle, meist ein Präparat. Frag deine Ärztin, deinen Arzt oder in der Apotheke, welches passt.',
+  logTitle:'Was hast du gegessen?',
+  searchPh:'Suchen: Burger, Schnitzel, Eier …',
+  recent:'Zuletzt', common:'Häufig', orCat:'Oder wähle eine Kategorie',
+  noResults:'Nichts gefunden. Wähle stattdessen eine Kategorie.',
+  adding:'Wird eingetragen',
+  saveN:n=>n===1?'1 Eintrag speichern':`${n} Einträge speichern`,
+  pickFirst:'Wähle zuerst etwas aus',
+  saved:'Gespeichert',
+  dayEmpty:'Nichts eingetragen. Der Tag zählt als fleischfrei.',
+  dayEmptyAll:'Nichts eingetragen. Der Tag zählt als frei von tierischen Produkten.',
+  addForDay:'Für diesen Tag eintragen',
+  removed:'Eintrag gelöscht',
+  delete:'Löschen',
+  lossTitle:n=>`${n} ist weg.`,
+  lossText:(n,m)=>`Seit ${n} dein Coach wurde, hast du etwa 1,3 kg Huhn gegessen. Das ist ungefähr ein Hühnerleben. Ab jetzt coacht dich ${m}.`,
+  lossOk:m=>`Hallo, ${m}`,
+  insTitle:'Statistik',
+  weeks8:'Fleisch pro Woche',
+  chartLegend:'Strichliert: Obergrenze 225 g. Rot: 600 g. Sprösslinge zeigen Wochen unter deiner Grenze. Weniger ist besser.',
+  avg4:'Durchschnitt pro Woche, letzte 4 Wochen',
+  co2m:'kg CO2e, letzte 30 Tage',
+  animalsStart:'Tiere seit Beginn',
+  vsAt:'Du und Österreich',
+  you7:'Du', atAvg:'Österreich',
+  vsAtNote:'In Österreich wurden 2025 pro Kopf 58,5 kg Fleisch gegessen, etwa 1.125 g pro Woche (Statistik Austria).',
+  animalsTitle:'Tiere hinter deinem Essen',
+  animalsNote:'Seit Beginn. Grobe Werte: ein Huhn ≈ 1,3 kg Fleisch, ein Schwein ≈ 80 kg, ein Rind ≈ 250 kg.',
+  an:{chicken:'Hühner',pig:'Schweine',cattle:'Rinder',sheep:'Schafe',fish:'Fische (grob)',hen:'Legehennen-Tage'},
+  co2Title:'CO2-Fußabdruck, letzte 30 Tage',
+  co2From:{meat:'Fleisch',fish:'Fisch',other:'Eier & Milchprodukte',base:'Eier & Milchprodukte (geschätzt)'},
+  co2Total:'Gesamt',
+  co2Compare:k=>`Im österreichischen Schnitt verursacht allein das Fleisch etwa ${k} kg CO2e pro Monat.`,
+  co2Note:'Weltweite Medianwerte (Poore & Nemecek 2018, Our World in Data). Für Rind wird der niedrigere Wert aus der Milchviehhaltung verwendet, die Schätzung ist also vorsichtig.',
+  healthTitle:'Gesundheit',
+  health:[
+    'Die österreichischen Empfehlungen von 2024: pro Woche höchstens 1 Portion Fleisch, 1 Portion Fisch und wahlweise 1 weitere von beiden. Das sind etwa 225 g Fleisch. Weniger ist kein Problem.',
+    'Rotes Fleisch und Wurst besser selten essen. Verarbeitetes Fleisch wird mit Darmkrebs in Verbindung gebracht.',
+    'Wer keine oder kaum tierische Produkte isst, sollte Vitamin B12 einnehmen. Auch Eisen, Jod und Omega-3 lohnen einen Blick.',
+    'Flexi gibt allgemeine Infos, keine medizinische Beratung.',
+  ],
+  memorialTitle:'Deine Coaches',
+  memorialNow:n=>`${n}, coacht gerade`,
+  memorialGone:(n,a,b)=>`${n}, ${a} – ${b}`,
+  whyTitle:'Warum weniger?',
+  whyLead:'Was passiert, bevor Tierisches auf deinem Teller landet. Kurz, sachlich, ohne Schockbilder. Weniger davon hilft immer, perfekt musst du nicht sein.',
+  co2PerKg:k=>`≈ ${k} kg CO2e pro kg`,
+  whyLinks:'Mehr erfahren',
+  links:[
+    ['Kurzgesagt-Videos über Fleisch','Animiert, ausgewogen, gut belegt','https://www.youtube.com/@kurzgesagt/search?query=meat'],
+    ['Umweltwirkung von Lebensmitteln','Our World in Data (Englisch)','https://ourworldindata.org/environmental-impacts-of-food'],
+    ['Österreichische Ernährungsempfehlungen','gesundheit.gv.at','https://www.gesundheit.gv.at/leben/ernaehrung/info/oesterreichische-ernaehrungspyramide/ernaerungspyramide-gesunder-teller.html'],
+    ['VIER PFOTEN','Tierschutzorganisation, Österreich','https://www.vier-pfoten.at/'],
+  ],
+  share:'Flexi mit Freund:innen teilen', shareText:'Ich zähle mein Fleisch mit Flexi. Gratis, ohne Konto:',
+  copied:'Link kopiert',
+  why:[
+    {cat:'poultry',title:'Hühnerfleisch',pts:[
+      'Masthühner sind auf so schnelles Wachstum gezüchtet, dass sie nach etwa 5 bis 7 Wochen ihr Schlachtgewicht erreichen.',
+      'Das schnelle Wachstum belastet Beine und Herz. Gegen Ende sitzen viele Tiere die meiste Zeit, weil Gehen schwerfällt.',
+      'Ein Huhn liefert etwa 1,3 kg Fleisch. Pro Kilo stecken in Hühnerfleisch viel mehr Tiere als in Schwein oder Rind.']},
+    {cat:'egg',title:'Eier',pts:[
+      'Legehennen sind darauf gezüchtet, rund 300 Eier im Jahr zu legen. Ihr wilder Vorfahre legt nur einen kleinen Bruchteil davon.',
+      'Für so viel Eierschale holt sich der Körper Kalzium aus den Knochen. Brüche am Brustbein sind häufig.',
+      'Männliche Küken von Legerassen setzen zu langsam Fleisch an. Jahrzehntelang wurden sie direkt nach dem Schlüpfen getötet. Deutschland hat das 2022 verboten, anderswo ersetzen Geschlechtsbestimmung im Ei oder die Aufzucht der Brüder diese Praxis.',
+      'Hennen werden meist nach etwa 1 bis 1,5 Jahren geschlachtet, wenn sie weniger legen.']},
+    {cat:'pork',title:'Schweinefleisch',pts:[
+      'Schweine sind neugierig, sozial und schneiden in vielen Intelligenztests gut ab.',
+      'In der EU darf ein Schwein mit 85 bis 110 kg gesetzlich auf 0,65 m² Bodenfläche gehalten werden.',
+      'Die meisten Schweine werden mit etwa sechs Monaten geschlachtet. Schwein ist das Fleisch, das in Österreich am meisten gegessen wird.']},
+    {cat:'beef',title:'Rindfleisch',pts:[
+      'Rindfleisch hat den größten Klima-Fußabdruck gängiger Lebensmittel. Rinder stoßen beim Verdauen Methan aus.',
+      'Selbst vorsichtig gerechnet verursacht ein Kilo Rind etwa dreimal so viel CO2 wie Huhn oder Schwein.',
+      'Viele österreichische Rinder grasen auf Grünland, auf dem kein Ackerbau möglich ist. Das senkt einen Teil der Belastung, das Methan aber nicht.']},
+    {cat:'milk',title:'Milch & Käse',pts:[
+      'Kühe geben nur Milch, nachdem sie ein Kalb geboren haben. Milchkühe werden deshalb etwa einmal im Jahr besamt.',
+      'Die Kälber werden meist innerhalb weniger Tage von der Mutter getrennt.',
+      'Männliche Kälber geben keine Milch. Viele werden gemästet, manche ins Ausland exportiert.',
+      'Käse ist konzentrierte Milch. Deshalb verursacht ein Kilo Käse mehr CO2 als ein Kilo Schweinefleisch.']},
+    {cat:'fish',title:'Fisch',pts:[
+      'Mehr als ein Drittel der untersuchten Fischbestände weltweit ist überfischt.',
+      'Netze fangen auch andere Tiere, von Delfinen bis zu Schildkröten. Das nennt man Beifang.',
+      'Zuchtfische bekommen oft Fischmehl aus Wildfang.']},
+  ],
+  setLang:'Sprache', setMode:'Was du mitzählst', setBase:'Deine üblichen Eier & Milchprodukte',
+  setInstall:'Startbildschirm', installedAlready:'Flexi ist auf diesem Gerät installiert.',
+  setData:'Deine Daten',
+  dataNote:'Deine Einträge sind nur in diesem Browser auf diesem Gerät gespeichert. Exportiere sie ab und zu als Backup.',
+  exportFile:'Backup herunterladen', copyData:'Daten kopieren', importFile:'Backup wiederherstellen',
+  importQ:n=>`Deine aktuellen Daten durch dieses Backup (${n} Einträge) ersetzen?`, importOk:'Ersetzen', imported:'Backup wiederhergestellt', importBad:'Diese Datei ist kein Flexi-Backup.',
+  dataCopied:'Daten kopiert', copyFail:'Kopieren hat nicht geklappt. Markiere den Text unten und kopiere ihn.',
+  reset:'Alle Daten löschen', resetConfirm:'Nochmal tippen, um alles zu löschen', resetDone:'Alle Daten gelöscht',
+  about:'Über Flexi',
+  aboutText:'Flexi ist gratis, ohne Werbung und ohne Konto. Quellen: Österreichische Ernährungsempfehlungen (AGES 2024), Versorgungsbilanzen 2025 von Statistik Austria, Poore & Nemecek 2018 über Our World in Data.',
+  feedback:'Ideen oder Fehler? Sag es dem Entwickler.',
+}};
+
+/* ------------------------------- state ------------------------------- */
+const pad = n => String(n).padStart(2,'0');
+const dkey = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const parse = k => { const [y,m,d] = k.split('-').map(Number); return new Date(y, m-1, d); };
+const addDays = (k,n) => { const d = parse(k); d.setDate(d.getDate()+n); return dkey(d); };
+const today = () => dkey(new Date());
+const daysBetween = (a,b) => Math.round((parse(b)-parse(a))/864e5);
+const mondayOf = k => { const d = parse(k); d.setDate(d.getDate() - ((d.getDay()+6)%7)); return dkey(d); };
+const uid = () => Math.random().toString(36).slice(2,10) + Date.now().toString(36).slice(-4);
+
+function defaults(){
+  let lang = 'en';
+  try { if ((navigator.language||'').toLowerCase().startsWith('de')) lang = 'de'; } catch(e){}
+  return {v:1, lang, mode:null, baseline:'avg', onboarded:false, created:today(), entries:[], confirmed:[], lostSeen:0, installDismissed:false, targetSeen:GUIDE};
+}
+function load(){
+  try { const raw = localStorage.getItem(KEY); if (!raw) return null; const s = JSON.parse(raw); return valid(s) ? Object.assign(defaults(), s) : null; }
+  catch(e){ return null; }
+}
+function valid(s){ return s && typeof s === 'object' && Array.isArray(s.entries) && Array.isArray(s.confirmed); }
+function save(){ try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e){} }
+
+let S = load() || defaults();
+const ui = {tab:'home', ob:'welcome', sheet:null, logDate:null, tray:[], query:'', justLogged:false, dayKey:null, resetArmed:false, importData:null, dump:null, ranOnce:false};
+let deferredPrompt = null;
+
+const L = () => T[S.lang] || T.en;
+const numLocale = () => L().locale === 'de-AT' ? 'de-DE' : L().locale;
+const fmt = n => new Intl.NumberFormat(numLocale(), {maximumFractionDigits:0}).format(Math.round(n));
+const fmt1 = n => new Intl.NumberFormat(numLocale(), {maximumFractionDigits:1, minimumFractionDigits:n<10?1:0}).format(n);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const foodName = f => f[S.lang] || f.en;
+const tracks = cat => S.mode === 'all' || CATS[cat].group !== 'other';
+
+/* ------------------------------- calculations ------------------------------- */
+const isMeat = c => CATS[c].group === 'meat';
+const isFish = c => CATS[c].group === 'fish';
+const isOther = c => CATS[c].group === 'other';
+const isAny = () => true;
+function sumRange(from, to, pred){
+  let g = 0;
+  for (const e of S.entries) if (e.date >= from && e.date <= to) for (const it of e.items) if (CATS[it.cat] && pred(it.cat)) g += it.g;
+  return g;
+}
+const dayHas = (k, pred) => S.entries.some(e => e.date === k && e.items.some(it => pred(it.cat)));
+const last7 = (pred=isMeat) => sumRange(addDays(today(),-6), today(), pred);
+const prev7 = (pred=isMeat) => sumRange(addDays(today(),-13), addDays(today(),-7), pred);
+const watched = c => S.mode === 'all' ? true : !isOther(c);
+
+function personalTarget(){
+  let t = GUIDE, w = mondayOf(S.created);
+  if (w < S.created) w = addDays(w, 7);          // first full week after starting
+  const cur = mondayOf(today());
+  for (; w < cur; w = addDays(w, 7)) {
+    if (sumRange(w, addDays(w,6), isMeat) <= t) t = Math.max(0, t - 25);
+  }
+  return t;
+}
+function pressure(){ return Math.max(0, Math.min(1, (last7() - GUIDE) / (MAXG - GUIDE))); }
+function streak(){
+  let n = 0, k = addDays(today(), -1);
+  while (k >= S.created && !dayHas(k, watched)) { n++; k = addDays(k, -1); }
+  return n;
+}
+function unconfirmed(){
+  const out = [], start = S.created > addDays(today(),-6) ? S.created : addDays(today(),-6);
+  for (let k = start; k < today(); k = addDays(k,1)) if (!S.entries.some(e => e.date === k) && !S.confirmed.includes(k)) out.push(k);
+  return out;
+}
+const poultryTotal = () => S.entries.reduce((a,e) => a + e.items.reduce((b,it) => b + (it.cat === 'poultry' ? it.g : 0), 0), 0);
+const coachName = i => NAMES[i % NAMES.length] + (i >= NAMES.length ? ' ' + (Math.floor(i / NAMES.length) + 1) : '');
+function coach(){ const tot = poultryTotal(); const idx = Math.floor(tot / BIRD_G); return {idx, name:coachName(idx), life:1 - (tot % BIRD_G) / BIRD_G, left:BIRD_G - (tot % BIRD_G)}; }
+function memorial(){
+  const sorted = [...S.entries].sort((a,b) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.ts - b.ts);
+  const out = []; let acc = 0, from = S.created, k = 0;
+  for (const e of sorted) for (const it of e.items) if (it.cat === 'poultry') {
+    acc += it.g;
+    while (acc >= (k + 1) * BIRD_G) { out.push({name:coachName(k), from, to:e.date}); from = e.date; k++; }
+  }
+  return {gone:out, sinceCurrent:from};
+}
+function co2(from, to){
+  const r = {meat:0, fish:0, other:0, base:0};
+  for (const e of S.entries) if (e.date >= from && e.date <= to) for (const it of e.items) {
+    const c = CATS[it.cat]; if (!c || c.co2 == null || !tracks(it.cat)) continue;
+    r[c.group] += it.g / 1000 * c.co2;
+  }
+  if (S.mode !== 'all') {
+    const b = BASELINES[S.baseline] || BASELINES.avg, days = daysBetween(from, to) + 1;
+    r.base = (b.egg/1000*CATS.egg.co2 + b.milk/1000*CATS.milk.co2 + b.cheese/1000*CATS.cheese.co2) * days / 7;
+  }
+  r.total = r.meat + r.fish + r.other + r.base;
+  return r;
+}
+function animals(){
+  const r = {chicken:0, pig:0, cattle:0, sheep:0, fish:0, hen:0};
+  for (const e of S.entries) for (const it of e.items) {
+    const c = CATS[it.cat]; if (!c) continue;
+    if (c.animal) r[c.animal] += it.g / c.perAnimal;
+    if (it.cat === 'egg' && S.mode === 'all') r.hen += (it.g / 60) * 1.2;   // ≈300 eggs a year
+  }
+  return r;
+}
+function b12Flag(){
+  if (daysBetween(S.created, today()) < 14) return false;
+  const from = addDays(today(), -13);
+  if (S.mode === 'all') return sumRange(from, today(), isAny) < 150;
+  return S.baseline === 'low' && sumRange(from, today(), c => !isOther(c)) === 0;
+}
+function coachLine(){
+  const l = L(), c = coach(), g = last7(), t = personalTarget();
+  if (ui.justLogged) return {mood:'neutral', text:l.msgLogged};
+  if (!S.entries.length && daysBetween(S.created, today()) < 1) return {mood:'happy', text:(S.mode==='all'?l.msgNewAll:l.msgNew)(c.name)};
+  if (t < (S.targetSeen ?? GUIDE)) return {mood:'happy', text:l.msgTargetDown(t)};
+  if (g > MAXG) return {mood:'worried', text:l.msgOverMax(fmt(g))};
+  if (g > t) {
+    const s = streak();
+    if (s >= 2) return {mood:'neutral', text:l.msgStreak(s) + ' ' + l.msgOver(fmt(g), fmt(g - t))};
+    return {mood:'worried', text:l.msgOver(fmt(g), fmt(g - t))};
+  }
+  const s = streak();
+  if (g === 0 && daysBetween(S.created, today()) >= 7) return {mood:'happy', text:l.msgZero};
+  if (s >= 1) return {mood:'happy', text:l.msgStreak(s)};
+  const better = prev7() - g;
+  if (better >= 50 && daysBetween(S.created, today()) >= 13) return {mood:'happy', text:l.msgBetter(fmt(better))};
+  return {mood:'happy', text:l.msgUnder(fmt(g), fmt(t))};
+}
+
+/* ------------------------------- drawings ------------------------------- */
+function henSVG(mood='neutral', extra=''){
+  const eye = mood === 'happy'
+    ? '<path d="M82.5 41.5q3.5-4.5 7 0" fill="none" stroke="var(--hen-eye)" stroke-width="2.6" stroke-linecap="round"/>'
+    : mood === 'worried'
+    ? '<circle cx="86" cy="41" r="3" fill="var(--hen-eye)"/><path d="M80.5 34.5l9 -2.5" stroke="var(--hen-eye)" stroke-width="2.4" stroke-linecap="round"/><path d="M73 38q-2 4 0 6q2-2 0-6z" fill="#7cc4f0"/>'
+    : '<circle cx="86" cy="41" r="3.1" fill="var(--hen-eye)"/><circle cx="87" cy="40" r="1" fill="#fff"/>';
+  return `<g class="hen ${mood}" ${extra}>
+    <g stroke="var(--beak)" stroke-width="3.6" stroke-linecap="round" fill="none">
+      <path d="M52 92L50 108l-6 3M50 108l5 3"/><path d="M68 92L70 108l-5 3M70 108l6 3"/></g>
+    <ellipse cx="25" cy="52" rx="7" ry="15" transform="rotate(-28 25 52)" fill="var(--hen-shade)"/>
+    <ellipse cx="33" cy="47" rx="6" ry="14" transform="rotate(-8 33 47)" fill="var(--hen-shade)"/>
+    <ellipse cx="58" cy="72" rx="35" ry="26" fill="var(--hen)"/>
+    <circle cx="82" cy="45" r="17" fill="var(--hen)"/>
+    <path d="M38 68q20-12 36 1q-10 17-36-1z" fill="var(--hen-shade)"/>
+    <circle cx="76" cy="28" r="5.5" fill="var(--comb)"/><circle cx="83" cy="25.5" r="6.2" fill="var(--comb)"/><circle cx="90" cy="29" r="5" fill="var(--comb)"/>
+    <path d="M97 41l11 4.5-11 4.5z" fill="var(--beak)"/>
+    <ellipse cx="96" cy="55" rx="3.6" ry="5.6" fill="var(--comb)"/>
+    <circle cx="89" cy="49" r="4" fill="var(--comb)" opacity=".22"/>
+    ${eye}
+  </g>`;
+}
+function hillY(x){ return 300 - 168 * Math.sqrt(Math.max(0, 1 - ((x - 180) / 300) ** 2)); }
+function flowerSVG(x, i, ok, delay){
+  const y = hillY(x) + 2;
+  if (!ok) return `<ellipse cx="${x}" cy="${y-1}" rx="7" ry="4" fill="var(--stone)"/>`;
+  const col = ['var(--f1)','var(--f2)','var(--f3)','var(--f4)'][i % 4];
+  const cy = y - 20, petals = [0,72,144,216,288].map(a => { const r = a*Math.PI/180; return `<circle cx="${(x+Math.cos(r)*5).toFixed(1)}" cy="${(cy+Math.sin(r)*5).toFixed(1)}" r="4.2" fill="${col}"/>`; }).join('');
+  return `<g class="flower" style="animation-delay:${delay}ms"><path d="M${x} ${y}V${cy+3}" stroke="var(--hill-2)" stroke-width="2.6" stroke-linecap="round"/><path d="M${x} ${y-8}q6-6 9-2q-5 5-9 2z" fill="var(--hill-2)"/>${petals}<circle cx="${x}" cy="${cy}" r="3.2" fill="var(--sun)"/></g>`;
+}
+function sceneSVG(mood, flowers, opts={}){
+  const xs = [30, 64, 98, 128, 244, 280, 318];
+  const fl = flowers.map((ok,i) => flowerSVG(xs[i], i, ok, 120 + i * 70)).join('');
+  const hen = opts.gone ? '' : `<g transform="translate(130 43) scale(.75)">${henSVG(mood)}</g>`;
+  const feather = opts.gone ? `<g transform="translate(168 70)"><path class="feather" d="M10 0C28 18 26 46 10 64C0 46-2 18 10 0Z" fill="var(--hen)"/><path d="M10 6V68" stroke="var(--hen-shade)" stroke-width="2"/></g>` : '';
+  return `<svg viewBox="0 0 360 168" role="img" aria-hidden="true">
+    <circle cx="318" cy="38" r="17" fill="var(--sun)"/>
+    <circle cx="46" cy="30" r="2" fill="var(--line)"/><circle cx="96" cy="52" r="1.6" fill="var(--line)"/><circle cx="250" cy="24" r="1.8" fill="var(--line)"/>
+    <ellipse cx="180" cy="300" rx="300" ry="168" fill="var(--hill)"/>
+    <ellipse cx="180" cy="306" rx="268" ry="150" fill="var(--hill-2)" opacity=".35"/>
+    ${fl}${hen}${feather}
+  </svg>`;
+}
+const SPROUT = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21v-8" stroke="var(--calm)" stroke-width="2.4" stroke-linecap="round"/><path d="M12 14c-5 0-7-3-7-7 4 0 7 2 7 7zM12 12c0-4 2-7 7-7 0 5-3 7-7 7z" fill="var(--calm)"/></svg>';
+const I = {
+  home:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>',
+  chart:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
+  why:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.6 2.6 0 0 1 5 1c0 1.8-2.5 2.2-2.5 4M12 17.5v.01"/></svg>',
+  gear:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
+  plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  x:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  search:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>',
+  ext:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>',
+  info:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.01"/></svg>',
+  phone:'<svg class="ph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M12 8v6M9 11l3 3 3-3"/></svg>',
+  share:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.2 10.8l7.6-4.4M8.2 13.2l7.6 4.4"/></svg>',
+};
+const brandSVG = `<svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="58" fill="var(--sky)"/><g transform="translate(6 2) scale(.9)">${henSVG('happy').replace('class="hen happy"','')}</g></svg>`;
+
+/* ------------------------------- render: onboarding ------------------------------- */
+function renderOnboarding(){
+  const l = L(), steps = S.mode === 'meat' || !S.mode ? ['welcome','goal','base','coach','install'] : ['welcome','goal','coach','install'];
+  const at = steps.indexOf(ui.ob);
+  const bar = `<div class="ob-steps" aria-hidden="true">${steps.map((s,i) => `<i class="${i <= at ? 'on' : ''}"></i>`).join('')}</div>`;
+  const langSeg = `<div class="seg" role="group" aria-label="Language">${['de','en'].map(k => `<button data-act="lang" data-v="${k}" aria-pressed="${S.lang===k}">${k==='de'?'Deutsch':'English'}</button>`).join('')}</div>`;
+  let body = '';
+  if (ui.ob === 'welcome') body = `
+    ${bar}
+    <div class="ob-art">${sceneSVG('happy',[true,true,false,true,true,true,true])}</div>
+    <h1>${l.obWelcomeTitle}</h1>
+    <p class="lead">${l.obWelcomeText}</p>
+    <div class="ob-actions">${langSeg}<button class="btn btn-primary btn-wide" data-act="ob" data-v="goal">${l.start}</button></div>`;
+  else if (ui.ob === 'goal') body = `
+    ${bar}
+    <h1>${l.obGoalTitle}</h1>
+    <button class="choice" data-act="mode" data-v="meat" aria-pressed="${S.mode==='meat'}"><b>${l.goalMeat}</b><span>${l.goalMeatDesc}</span></button>
+    <button class="choice rim" data-act="mode" data-v="all" aria-pressed="${S.mode==='all'}"><b>${l.goalAll}</b><span>${l.goalAllDesc}</span></button>
+    <div class="ob-actions"><button class="btn btn-ghost btn-wide" data-act="ob" data-v="welcome">${l.back}</button></div>`;
+  else if (ui.ob === 'base') body = `
+    ${bar}
+    <h1>${l.obBaseTitle}</h1>
+    <p class="lead">${l.obBaseText}</p>
+    ${['low','avg','high'].map(k => `<button class="choice" data-act="base" data-v="${k}" aria-pressed="${S.baseline===k}"><b>${l.base[k][0]}</b><span>${l.base[k][1]}</span></button>`).join('')}
+    <div class="ob-actions"><button class="btn btn-ghost btn-wide" data-act="ob" data-v="goal">${l.back}</button></div>`;
+  else if (ui.ob === 'coach') { const n = coachName(0); body = `
+    ${bar}
+    <div class="ob-art">${sceneSVG('happy',[true,true,true,true,true,true,true])}</div>
+    <h1>${l.obCoachTitle}</h1>
+    <p class="lead">${l.obCoachText(n)}</p>
+    <div class="card note">${I.info}<p>${l.obCoachRule(n)}</p></div>
+    <div class="ob-actions"><button class="btn btn-primary btn-wide" data-act="ob" data-v="install">${l.obCoachOk(n)}</button>
+    <button class="btn btn-ghost btn-wide" data-act="ob" data-v="${S.mode==='meat'?'base':'goal'}">${l.back}</button></div>`; }
+  else if (ui.ob === 'install') body = `
+    ${bar}
+    <h1>${l.obInstallTitle}</h1>
+    <p class="lead">${l.obInstallText}</p>
+    ${installHelp()}
+    <div class="ob-actions"><button class="btn ${isStandalone()?'btn-primary':'btn-ghost'} btn-wide" data-act="finish">${isStandalone()?l.done:l.later}</button></div>`;
+  return `<div class="ob">${body}</div>`;
+}
+const isStandalone = () => { try { return matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; } catch(e){ return false; } };
+const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+function installHelp(){
+  const l = L();
+  if (isStandalone()) return `<div class="card note">${I.info}<p>${l.installDone}</p></div>`;
+  if (deferredPrompt) return `<button class="btn btn-primary btn-wide" data-act="install">${I.phone}${l.installBtn}</button>`;
+  if (isIOS()) return `<div class="card"><ol class="steps-list">${l.installIos.map(s => `<li>${s}</li>`).join('')}</ol></div>`;
+  return `<div class="card note">${I.info}<p>${l.installAndroid}</p></div>`;
+}
+
+/* ------------------------------- render: home ------------------------------- */
+function dayLabel(k){
+  const l = L();
+  if (k === today()) return l.today;
+  if (k === addDays(today(),-1)) return l.yesterday;
+  return new Intl.DateTimeFormat(l.locale, {weekday:'short', day:'numeric', month:'numeric'}).format(parse(k));
+}
+const wd = k => new Intl.DateTimeFormat(L().locale, {weekday:'narrow'}).format(parse(k));
+function listDays(keys){
+  const l = L(), f = new Intl.DateTimeFormat(l.locale, {weekday:'short'});
+  const names = keys.map(k => k === addDays(today(),-1) ? l.yesterday : f.format(parse(k)));
+  return names.length <= 3 ? names.join(', ') : `${names[0]} – ${names[names.length-1]}`;
+}
+function renderHome(){
+  const l = L(), c = coach(), line = coachLine(), g = last7(), t = personalTarget();
+  const days = Array.from({length:7}, (_,i) => addDays(today(), i - 6));
+  const flowers = days.map(k => k >= S.created ? !dayHas(k, watched) : true);
+  const fish = last7(isFish), other = S.mode === 'all' ? last7(isOther) : 0;
+  const over = g > MAXG;
+  const fill = Math.min(g / MAXG, 1.25);
+  const un = unconfirmed();
+  const strip = days.map(k => {
+    const dg = sumRange(k, k, isMeat), df = sumRange(k, k, c => !isMeat(c) && watched(c));
+    const has = dayHas(k, watched), before = k < S.created;
+    const col = has ? `<i class="${dg > GUIDE ? 'hi' : ''}" style="height:${Math.max(6, Math.min(34, (dg + df/3) / 250 * 34))}px"></i>` : (before ? '' : SPROUT);
+    return `<button class="day ${k === today() ? 'today' : ''}" data-act="day" data-v="${k}" aria-label="${dayLabel(k)}${has ? ', ' + fmt(dg) + ' g' : ''}">
+      <span class="dn">${wd(k)}</span><span class="col">${col}</span><span class="dg">${has ? (dg ? fmt(dg) : '·') : '&nbsp;'}</span></button>`;
+  }).join('');
+  const catchCard = un.length ? `<div class="card catch"><p>${l.catch(listDays(un))}</p>
+      <div class="row"><button class="btn btn-primary" data-act="confirm">${l.catchYes}</button><button class="btn btn-line" data-act="log" data-v="${un[0]}">${l.catchNo}</button></div></div>` : '';
+  const showInstall = !isStandalone() && !S.installDismissed && (deferredPrompt || isIOS());
+  const installCard = showInstall ? `<div class="card install-card">${I.phone}<div class="txt"><b>${l.installCardTitle}</b><p class="small muted">${l.installCardText}</p></div>
+      ${deferredPrompt ? `<button class="btn btn-primary" data-act="install">${l.done === 'Fertig' ? 'Hinzufügen' : 'Add'}</button>` : `<button class="btn btn-ghost" data-act="tab" data-v="settings">${l.next}</button>`}
+      <button class="x" data-act="dismissInstall" aria-label="${l.close}">${I.x}</button></div>` : '';
+  return `
+    <section class="card hero" aria-label="${esc(c.name)}">
+      <div class="scene">${sceneSVG(line.mood, flowers)}</div>
+      <p class="bubble" role="status">${esc(line.text)}</p>
+      <div class="coach-meta"><span class="coach-name">${esc(c.name)}</span>
+        <span class="life" role="meter" aria-label="${esc(l.life(c.name))}" aria-valuenow="${Math.round(c.life*100)}" aria-valuemin="0" aria-valuemax="100"><i style="width:${(c.life*100).toFixed(1)}%"></i></span>
+        <span class="small muted num">${l.lifeLeft(fmt(c.left))}</span></div>
+    </section>
+    ${catchCard}
+    <button class="btn btn-primary btn-wide" data-act="log">${I.plus}${l.logBtn}</button>
+    <section class="card" aria-label="${l.last7}">
+      <div class="wk-head"><span class="label">${l.last7}</span><span class="wk-big num">${fmt(g)}<small> g ${l.meat}</small></span></div>
+      <div class="track ${over ? 'over' : ''}" style="--fill:${fill.toFixed(3)}">
+        <div class="fill"></div>
+        ${t < GUIDE ? `<i class="mark goal" style="left:${t/MAXG*100}%"></i>` : ''}
+        <i class="mark" style="left:${GUIDE/MAXG*100}%"><span>${GUIDE}</span></i>
+        <i class="mark max" style="left:100%"><span>${l.max}</span></i>
+      </div>
+      <div class="wk-foot"><span>${l.guideline}: ${GUIDE} g. ${l.lowerBetter}</span>${t < GUIDE ? `<span>${l.yourTarget}: ${fmt(t)} g</span>` : ''}${fish ? `<span>${l.plusFish(fmt(fish))}</span>` : ''}${other ? `<span>${l.plusOther(fmt(other))}</span>` : ''}</div>
+      <div class="days">${strip}</div>
+    </section>
+    ${b12Flag() ? `<div class="card note">${I.info}<p>${l.b12}</p></div>` : ''}
+    ${installCard}`;
+}
+
+/* ------------------------------- render: insights ------------------------------- */
+function chartSVG(){
+  const l = L(), W = 340, H = 236, Lp = 30, R = 6, T = 50, B = 26, pw = W - Lp - R, ph = H - T - B;
+  const cur = mondayOf(today()), tgt = personalTarget();
+  const weeks = Array.from({length:8}, (_,i) => { const m = addDays(cur, -7 * (7 - i)); return {m, g:sumRange(m, addDays(m,6), isMeat), current:i === 7, before:addDays(m,6) < S.created}; });
+  const y = g => T + ph - Math.min(g, MAXG) / MAXG * ph, step = pw / 8, bw = step * 0.56;
+  const fmtD = new Intl.DateTimeFormat(l.locale, {day:'numeric', month:'numeric'});
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${l.weeks8}">`;
+  s += `<rect x="${Lp}" y="${T}" width="${pw}" height="${ph}" fill="none" stroke="var(--line)" stroke-width="1.5" rx="6"/>`;
+  [[MAXG,'var(--alarm)','',l.max],[GUIDE,'var(--ink-2)','5 4',GUIDE+' g']].forEach(([v,c,d,lab]) => {
+    s += `<line x1="${Lp}" x2="${Lp+pw}" y1="${y(v)}" y2="${y(v)}" stroke="${c}" stroke-width="1.6" ${d ? `stroke-dasharray="${d}"` : ''}/>`;
+    s += `<text x="${Lp-4}" y="${y(v)+4}" text-anchor="end" font-size="10" font-weight="800" fill="${c}">${v}</text>`;
+  });
+  if (tgt < GUIDE) s += `<line x1="${Lp}" x2="${Lp+pw}" y1="${y(tgt)}" y2="${y(tgt)}" stroke="var(--calm)" stroke-width="1.6" stroke-dasharray="2 4"/>${GUIDE - tgt >= 60 ? `<text x="${Lp-4}" y="${y(tgt)+4}" text-anchor="end" font-size="10" font-weight="800" fill="var(--calm)">${tgt}</text>` : ''}`;
+  s += `<text x="${Lp-4}" y="${T+ph+4}" text-anchor="end" font-size="10" font-weight="700" fill="var(--ink-2)">0</text>`;
+  weeks.forEach((w,i) => {
+    const cx = Lp + step * (i + .5), x = cx - bw / 2, base = T + ph;
+    if (!w.before && w.g > 0) {
+      if (w.g > MAXG) {
+        const top = Math.max(6, T - Math.min((w.g - MAXG) / MAXG * ph, T - 6));
+        const zig = `${x},${top+6} ${x+bw*.25},${top} ${x+bw*.5},${top+7} ${x+bw*.75},${top+1} ${x+bw},${top+6}`;
+        s += `<polygon points="${x},${base} ${zig} ${x+bw},${base}" fill="var(--alarm)" opacity="${w.current ? .55 : 1}"><animateTransform attributeName="transform" type="translate" values="0 0;0 -2;0 0" dur="1.6s" repeatCount="indefinite"/></polygon>`;
+        s += `<text x="${cx}" y="${top-4}" text-anchor="middle" font-size="10" font-weight="800" fill="var(--alarm)">${fmt(w.g)}</text>`;
+      } else {
+        const h = Math.max(3, base - y(w.g)), col = w.g > GUIDE ? 'color-mix(in oklab, var(--calm), var(--alarm) ' + Math.round((w.g-GUIDE)/(MAXG-GUIDE)*100) + '%)' : 'var(--calm)';
+        s += `<rect x="${x}" y="${base-h}" width="${bw}" height="${h}" rx="4" fill="${col}" opacity="${w.current ? .55 : 1}"/>`;
+        s += `<text x="${cx}" y="${base-h-5}" text-anchor="middle" font-size="10" font-weight="800" fill="var(--ink-2)">${fmt(w.g)}</text>`;
+      }
+    }
+    if (!w.before && !w.current && w.g <= tgt) {
+      const sy = (w.g > 0 ? base - Math.max(3, base - y(w.g)) : base) - (w.g > 0 ? 14 : 0);
+      s += `<g transform="translate(${cx-9} ${sy-18})"><path d="M9 18v-7" stroke="var(--calm)" stroke-width="2.2" stroke-linecap="round"/><path d="M9 12c-4 0-6-3-6-6 3 0 6 2 6 6zM9 10c0-3 2-6 6-6 0 4-3 6-6 6z" fill="var(--calm)"/></g>`;
+    }
+    s += `<text x="${cx}" y="${H-8}" text-anchor="middle" font-size="10" font-weight="700" fill="var(--ink-2)">${w.current ? (S.lang==='de' ? 'jetzt' : 'now') : fmtD.format(parse(w.m))}</text>`;
+  });
+  return s + '</svg>';
+}
+function trendDown(){
+  const t = today(), a = sumRange(addDays(t,-27), t, isMeat), b = sumRange(addDays(t,-55), addDays(t,-28), isMeat);
+  return daysBetween(S.created, t) >= 35 && b > 0 && a <= b * 0.8;
+}
+function renderInsights(){
+  const l = L(), t = today();
+  const days4 = Math.min(28, daysBetween(S.created, t) + 1);
+  const avg4 = sumRange(addDays(t, -27), t, isMeat) / Math.max(1, days4) * 7;
+  const c = co2(addDays(t, -29), t), a = animals();
+  const animalsSum = a.chicken + a.pig + a.cattle + a.sheep + a.fish;
+  const me = last7(), mx = Math.max(me, AT_AVG_WEEK);
+  const mem = memorial(), cc = coach();
+  const fd = new Intl.DateTimeFormat(l.locale, {day:'numeric', month:'short'});
+  const run = trendDown() && !ui.ranOnce;
+  if (run) ui.ranOnce = true;
+  const anRows = ['chicken','pig','cattle','sheep','fish'].filter(k => a[k] > 0.001).map(k => `<div><dt>${l.an[k]}</dt><dd>${fmt1(a[k])}</dd></div>`).join('') +
+    (a.hen > 0 ? `<div><dt>${l.an.hen}</dt><dd>${fmt(a.hen)}</dd></div>` : '');
+  const coRows = ['meat','fish','other','base'].filter(k => c[k] > 0.05).map(k => `<div><dt>${l.co2From[k]}</dt><dd>${fmt1(c[k])} kg</dd></div>`).join('');
+  return `
+    <h1 style="font-size:1.9rem;padding:4px 2px 0">${l.insTitle}</h1>
+    <div class="stats">
+      <div class="stat"><b>${fmt(avg4)} g</b><span>${l.avg4}</span></div>
+      <div class="stat"><b>${fmt1(c.total)}</b><span>${l.co2m}</span></div>
+      <div class="stat"><b>${fmt1(animalsSum)}</b><span>${l.animalsStart}</span></div>
+    </div>
+    <section class="card chart">
+      <span class="label">${l.weeks8}</span>
+      ${chartSVG()}
+      ${run ? `<div class="runner" aria-hidden="true"><svg viewBox="0 0 120 120">${henSVG('happy').replace('class="hen happy"','')}</svg></div>` : ''}
+      <p class="small muted">${l.chartLegend}</p>
+    </section>
+    <section class="card">
+      <h2 style="font-size:1.15rem">${l.vsAt}</h2>
+      <div class="bars">
+        <div class="cmp"><span>${l.you7}</span><span class="bar"><i style="width:${me/mx*100}%;background:var(--accent)"></i></span><span class="num">${fmt(me)} g</span></div>
+        <div class="cmp"><span>${l.atAvg}</span><span class="bar"><i style="width:${AT_AVG_WEEK/mx*100}%;background:var(--alarm)"></i></span><span class="num">${fmt(AT_AVG_WEEK)} g</span></div>
+        <div class="cmp"><span>${l.guideline}</span><span class="bar"><i style="width:${GUIDE/mx*100}%;background:var(--ink-2)"></i></span><span class="num">${GUIDE} g</span></div>
+      </div>
+      <p class="small muted">${l.last7}. ${l.vsAtNote}</p>
+    </section>
+    <section class="card">
+      <h2 style="font-size:1.15rem">${l.co2Title}</h2>
+      <dl class="kv" style="margin:0">${coRows}<div><dt><b>${l.co2Total}</b></dt><dd>${fmt1(c.total)} kg</dd></div></dl>
+      <p class="small muted">${l.co2Compare(fmt(AT_AVG_CO2_WEEK * 30 / 7))} ${l.co2Note}</p>
+    </section>
+    <section class="card">
+      <h2 style="font-size:1.15rem">${l.animalsTitle}</h2>
+      ${anRows ? `<dl class="kv" style="margin:0">${anRows}</dl>` : ''}
+      <p class="small muted">${l.animalsNote}</p>
+    </section>
+    <section class="card">
+      <h2 style="font-size:1.15rem">${l.memorialTitle}</h2>
+      <div class="memorial">
+        <div><svg viewBox="0 0 120 120" aria-hidden="true">${henSVG('happy').replace('class="hen happy"','')}</svg><span><b>${l.memorialNow(esc(cc.name))}</b></span></div>
+        ${mem.gone.slice().reverse().map(g => `<div><svg viewBox="0 0 20 66" aria-hidden="true"><path d="M10 0C28 18 26 46 10 64C0 46-2 18 10 0Z" fill="var(--hen-shade)"/><path d="M10 6V64" stroke="var(--ink-2)" stroke-width="1.5"/></svg><span class="muted">${l.memorialGone(esc(g.name), fd.format(parse(g.from)), fd.format(parse(g.to)))}</span></div>`).join('')}
+      </div>
+    </section>
+    <section class="card">
+      <h2 style="font-size:1.15rem">${l.healthTitle}</h2>
+      <ul style="margin:0;padding-left:1.15em;display:flex;flex-direction:column;gap:7px">${l.health.map(h => `<li>${h}</li>`).join('')}</ul>
+    </section>`;
+}
+
+/* ------------------------------- render: why ------------------------------- */
+function renderWhy(){
+  const l = L();
+  return `
+    <div class="why-head"><h1>${l.whyTitle}</h1><p class="muted">${l.whyLead}</p></div>
+    ${l.why.map(w => `<section class="card why-card">
+      <h2><span class="dot" style="background:var(--c-${w.cat});width:14px;height:14px"></span>${w.title}</h2>
+      <span class="co2tag">${l.co2PerKg(fmt1(CATS[w.cat].co2))}</span>
+      <ul>${w.pts.map(p => `<li>${p}</li>`).join('')}</ul></section>`).join('')}
+    <section class="card">
+      <h2 style="font-size:1.15rem">${l.whyLinks}</h2>
+      <div class="links">${l.links.map(([a,b,h]) => `<a href="${h}" target="_blank" rel="noopener"><div>${a}<span>${b}</span></div>${I.ext}</a>`).join('')}</div>
+    </section>
+    <button class="btn btn-ghost btn-wide" data-act="share">${I.share}${l.share}</button>`;
+}
+
+/* ------------------------------- render: settings ------------------------------- */
+function renderSettings(){
+  const l = L();
+  return `
+    <h1 style="font-size:1.9rem;padding:4px 2px 0">${l.settings}</h1>
+    <section class="card set-sec"><h2>${l.setLang}</h2>
+      <div class="seg">${['de','en'].map(k => `<button data-act="lang" data-v="${k}" aria-pressed="${S.lang===k}">${k==='de'?'Deutsch':'English'}</button>`).join('')}</div></section>
+    <section class="card set-sec"><h2>${l.setMode}</h2>
+      <button class="choice" data-act="setmode" data-v="meat" aria-pressed="${S.mode==='meat'}"><b>${l.goalMeat}</b><span>${l.goalMeatDesc}</span></button>
+      <button class="choice rim" data-act="setmode" data-v="all" aria-pressed="${S.mode==='all'}"><b>${l.goalAll}</b><span>${l.goalAllDesc}</span></button></section>
+    ${S.mode === 'meat' ? `<section class="card set-sec"><h2>${l.setBase}</h2>
+      <div class="seg">${['low','avg','high'].map(k => `<button data-act="setbase" data-v="${k}" aria-pressed="${S.baseline===k}">${l.base[k][0]}</button>`).join('')}</div>
+      <p class="small muted">${l.base[S.baseline][1]}</p></section>` : ''}
+    <section class="card set-sec"><h2>${l.setInstall}</h2>${isStandalone() ? `<p class="muted">${l.installedAlready}</p>` : installHelp()}</section>
+    <section class="card set-sec"><h2>${l.setData}</h2>
+      <p class="small muted">${l.dataNote}</p>
+      <div class="row"><button class="btn btn-ghost" data-act="export">${l.exportFile}</button><button class="btn btn-ghost" data-act="copydata">${l.copyData}</button></div>
+      <label class="btn btn-line btn-wide" for="importFile">${l.importFile}</label>
+      <input id="importFile" type="file" accept="application/json,.json" hidden>
+      ${ui.importData ? `<div class="card note" style="box-shadow:none">${I.info}<div style="display:flex;flex-direction:column;gap:10px"><p>${l.importQ(ui.importData.entries.length)}</p><div class="row"><button class="btn btn-primary" data-act="importOk">${l.importOk}</button><button class="btn btn-ghost" data-act="importCancel">${l.cancel}</button></div></div></div>` : ''}
+      ${ui.dump ? `<textarea id="dump" class="dump" readonly>${esc(ui.dump)}</textarea>` : ''}
+      <button class="btn btn-danger btn-wide" data-act="reset">${ui.resetArmed ? l.resetConfirm : l.reset}</button></section>
+    <button class="btn btn-ghost btn-wide" data-act="share">${I.share}${l.share}</button>
+    <section class="card set-sec"><h2>${l.about}</h2><p class="small muted">${l.aboutText}</p><p class="small muted">v1 · ${S.entries.length} ${S.lang==='de'?'Einträge':'entries'}</p></section>`;
+}
+
+/* ------------------------------- render: shell ------------------------------- */
+function render(){
+  const root = document.documentElement;
+  root.lang = S.lang;
+  const app = document.getElementById('app');
+  if (!S.onboarded) { root.style.setProperty('--p', '0'); app.innerHTML = renderOnboarding(); return; }
+  root.style.setProperty('--p', pressure().toFixed(3));
+  const l = L();
+  const view = ui.tab === 'insights' ? renderInsights() : ui.tab === 'why' ? renderWhy() : ui.tab === 'settings' ? renderSettings() : renderHome();
+  const tab = (k, ic, lab) => `<button class="tab" data-act="tab" data-v="${k}" ${ui.tab===k?'aria-current="page"':''}>${ic}<span>${lab}</span></button>`;
+  app.innerHTML = `<div class="shell">
+    <header class="top"><div class="brand">${brandSVG}Flexi</div>
+      <button class="icon-btn" data-act="tab" data-v="settings" aria-label="${l.settings}" ${ui.tab==='settings'?'aria-current="page"':''}>${I.gear}</button></header>
+    <main id="main">${view}</main></div>
+    <nav class="tabs" aria-label="Flexi"><div class="tabs-in">${tab('home',I.home,l.navHome)}${tab('insights',I.chart,l.navInsights)}${tab('why',I.why,l.navWhy)}</div></nav>`;
+  renderLayer();
+}
+
+/* ------------------------------- sheets & modal ------------------------------- */
+function renderLayer(){
+  const layer = document.getElementById('layer'), l = L();
+  const c = coach();
+  if (S.onboarded && c.idx > S.lostSeen) {
+    const lost = coachName(S.lostSeen), next = coachName(S.lostSeen + 1);
+    layer.innerHTML = `<div class="loss" role="dialog" aria-modal="true" aria-labelledby="lossT"><div class="loss-card">
+      <div class="scene">${sceneSVG('neutral',[false,false,false,false,false,false,false],{gone:true})}</div>
+      <div class="loss-body"><h2 id="lossT">${esc(l.lossTitle(lost))}</h2><p>${esc(l.lossText(lost, next))}</p>
+      <button class="btn btn-primary btn-wide" data-act="lossOk">${esc(l.lossOk(next))}</button></div></div></div>`;
+    return;
+  }
+  if (!ui.sheet) { layer.innerHTML = ''; return; }
+  if (ui.sheet === 'log') {
+    const dates = Array.from({length:7}, (_,i) => addDays(today(), -i)).filter(k => k >= addDays(S.created, -7));
+    layer.innerHTML = `<div class="scrim" data-act="closeSheet"></div>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="logT"><div class="sheet-in">
+      <div class="sheet-head"><h2 id="logT" style="font-size:1.4rem">${l.logTitle}</h2><button class="x" data-act="closeSheet" aria-label="${l.close}">${I.x}</button></div>
+      <div class="sheet-body">
+        <div class="chips" role="group">${dates.map(k => `<button class="chip" data-act="logDate" data-v="${k}" aria-pressed="${ui.logDate===k}">${dayLabel(k)}</button>`).join('')}</div>
+        <label class="search">${I.search}<input id="q" type="search" autocomplete="off" placeholder="${esc(l.searchPh)}" value="${esc(ui.query)}" aria-label="${esc(l.searchPh)}"></label>
+        <div id="results">${resultsHTML()}</div>
+        <div id="tray">${trayHTML()}</div>
+      </div>
+      <div class="sheet-foot" id="foot">${footHTML()}</div>
+    </div></div>`;
+  } else if (ui.sheet === 'day') {
+    const k = ui.dayKey, list = S.entries.filter(e => e.date === k).sort((a,b) => a.ts - b.ts);
+    layer.innerHTML = `<div class="scrim" data-act="closeSheet"></div>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="dayT"><div class="sheet-in">
+      <div class="sheet-head"><h2 id="dayT" style="font-size:1.4rem">${dayLabel(k)}</h2><button class="x" data-act="closeSheet" aria-label="${l.close}">${I.x}</button></div>
+      <div class="sheet-body">
+        ${list.length ? `<div class="list">${list.map(e => `<div class="food"><span class="fn">${esc(e.label)}<span class="fi">${itemsText(e.items)}</span></span><button class="x" data-act="delEntry" data-v="${e.id}" aria-label="${l.delete}">${I.x}</button></div>`).join('')}</div>`
+          : `<p class="muted">${S.mode==='all' ? l.dayEmptyAll : l.dayEmpty}</p>`}
+      </div>
+      <div class="sheet-foot"><button class="btn btn-primary btn-wide" data-act="log" data-v="${k}">${I.plus}${l.addForDay}</button></div>
+    </div></div>`;
+  }
+}
+function amountText(cat, g){ return cat === 'egg' ? L().eggUnit(Math.round(g / 60 * 10) / 10) : `${fmt(g)} ${CATS[cat].unit === 'ml' ? 'ml' : 'g'}`; }
+function itemsText(items){ return items.map(it => `${L().catShort[it.cat]} ${amountText(it.cat, it.g)}`).join(' · '); }
+function norm(s){ return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/ß/g,'ss'); }
+function visibleFoods(){ return FOODS.filter(f => f.items.some(([c]) => tracks(c))); }
+function foodBtn(f){
+  const items = f.items.filter(([c]) => tracks(c)).map(([cat,g]) => ({cat,g}));
+  return `<button class="food" data-act="addFood" data-v="${f.id}"><span class="dot" style="background:var(--c-${items[0].cat})"></span><span class="fn">${esc(foodName(f))}<span class="fi">${itemsText(items)}</span></span><span class="plus" aria-hidden="true">+</span></button>`;
+}
+function resultsHTML(){
+  const l = L(), q = norm(ui.query.trim());
+  if (q) {
+    const hits = visibleFoods().filter(f => norm(f.en).includes(q) || norm(f.de).includes(q));
+    const catHits = CAT_ORDER.filter(c => tracks(c) && (norm(T.en.cat[c]).includes(q) || norm(T.de.cat[c]).includes(q)));
+    if (!hits.length && !catHits.length) return `<p class="muted small">${l.noResults}</p>${catsHTML()}`;
+    return `<div class="list">${hits.slice(0,12).map(foodBtn).join('')}${catHits.map(c => catFoodBtn(c)).join('')}</div>`;
+  }
+  const seen = new Set(), recent = [];
+  for (const e of [...S.entries].sort((a,b) => b.ts - a.ts)) { if (e.foodId && !seen.has(e.foodId)) { const f = FOODS.find(x => x.id === e.foodId); if (f && f.items.some(([c]) => tracks(c))) { seen.add(e.foodId); recent.push(f); } } if (recent.length >= 4) break; }
+  const commonIds = S.mode === 'all' ? ['coffee','cheesesandwich','burger','schnitzelpork','pizzamarg','hamsandwich','eggs2','yogurt'] : ['burger','schnitzelpork','hamsandwich','chickenbreast','leberkaese','pizzasalami','doner','fishfillet'];
+  const common = commonIds.map(id => FOODS.find(f => f.id === id)).filter(f => f && !seen.has(f.id));
+  return `${recent.length ? `<span class="label">${l.recent}</span><div class="list">${recent.map(foodBtn).join('')}</div>` : ''}
+    <span class="label" style="display:block;margin-top:${recent.length ? 12 : 0}px">${l.common}</span><div class="list">${common.slice(0, recent.length ? 4 : 6).map(foodBtn).join('')}</div>
+    <span class="label" style="display:block;margin-top:12px">${l.orCat}</span>${catsHTML()}`;
+}
+function catFoodBtn(c){ return `<button class="food" data-act="addCat" data-v="${c}"><span class="dot" style="background:var(--c-${c})"></span><span class="fn">${L().cat[c]}<span class="fi">${amountText(c, CATS[c].def)}</span></span><span class="plus" aria-hidden="true">+</span></button>`; }
+function catsHTML(){ return `<div class="cats" style="margin-top:6px">${CAT_ORDER.filter(tracks).map(c => `<button class="cat" data-act="addCat" data-v="${c}"><span class="dot" style="background:var(--c-${c})"></span>${L().catShort[c]}</button>`).join('')}</div>`; }
+function trayHTML(){
+  if (!ui.tray.length) return '';
+  const l = L();
+  return `<div class="tray"><span class="label">${l.adding} · ${dayLabel(ui.logDate)}</span>${ui.tray.map((t,i) => `<div class="tray-item">
+    <div class="tray-top"><span>${esc(t.label)}</span><button class="x" data-act="trayDel" data-i="${i}" aria-label="${l.delete}">${I.x}</button></div>
+    ${t.items.map((it,j) => `<div class="comp"><span class="cn"><span class="dot" style="background:var(--c-${it.cat})"></span>${l.catShort[it.cat]}</span>
+      <span class="stepper"><button data-act="step" data-i="${i}" data-j="${j}" data-v="-1" aria-label="−">−</button><output>${amountText(it.cat, it.g)}</output><button data-act="step" data-i="${i}" data-j="${j}" data-v="1" aria-label="+">+</button></span></div>`).join('')}
+  </div>`).join('')}</div>`;
+}
+function footHTML(){
+  const l = L(), n = ui.tray.length;
+  return `<button class="btn btn-primary btn-wide" data-act="saveTray" ${n ? '' : 'disabled style="opacity:.5"'}>${n ? l.saveN(n) : l.pickFirst}</button>`;
+}
+function refreshSheetParts(){ const r = document.getElementById('results'), t = document.getElementById('tray'), f = document.getElementById('foot'); if (r) r.innerHTML = resultsHTML(); if (t) t.innerHTML = trayHTML(); if (f) f.innerHTML = footHTML(); }
+
+/* ------------------------------- actions ------------------------------- */
+function toast(msg){
+  const el = document.createElement('div'); el.className = 'toast'; el.setAttribute('role','status'); el.textContent = msg;
+  document.body.appendChild(el); setTimeout(() => el.remove(), 2200);
+}
+function openLog(date){ ui.sheet = 'log'; ui.logDate = date || today(); ui.tray = []; ui.query = ''; renderLayer(); }
+function shareApp(){
+  const l = L(), url = location.href.split('#')[0];
+  const data = {title:'Flexi', text:l.shareText, url};
+  try { if (navigator.share) { navigator.share(data).catch(() => {}); return; } } catch(e){}
+  copyText(url).then(ok => toast(ok ? l.copied : url));
+}
+function copyText(text){
+  try { return navigator.clipboard.writeText(text).then(() => true, () => false); } catch(e){ return Promise.resolve(false); }
+}
+const ACT = {
+  lang(v){ S.lang = v; save(); render(); },
+  ob(v){ ui.ob = v; render(); window.scrollTo(0,0); },
+  mode(v){ S.mode = v; save(); ui.ob = v === 'meat' ? 'base' : 'coach'; render(); },
+  base(v){ S.baseline = v; save(); ui.ob = 'coach'; render(); },
+  finish(){ S.onboarded = true; S.created = today(); S.targetSeen = GUIDE; save(); ui.tab = 'home'; render(); },
+  async install(){ if (!deferredPrompt) return; deferredPrompt.prompt(); try { await deferredPrompt.userChoice; } catch(e){} deferredPrompt = null; render(); },
+  dismissInstall(){ S.installDismissed = true; save(); render(); },
+  tab(v){ ui.tab = v; ui.justLogged = false; ui.resetArmed = false; render(); window.scrollTo(0,0); },
+  log(v){ openLog(v); },
+  logDate(v){ ui.logDate = v; renderLayer(); },
+  day(v){ ui.sheet = 'day'; ui.dayKey = v; renderLayer(); },
+  closeSheet(){ ui.sheet = null; renderLayer(); },
+  confirm(){ S.confirmed = [...new Set([...S.confirmed, ...unconfirmed()])].filter(k => k >= addDays(today(), -30)); save(); render(); },
+  addFood(v){ const f = FOODS.find(x => x.id === v); if (!f) return; ui.tray.push({label:foodName(f), foodId:f.id, items:f.items.filter(([c]) => tracks(c)).map(([cat,g]) => ({cat,g}))}); ui.query = ''; const q = document.getElementById('q'); if (q) q.value = ''; refreshSheetParts(); },
+  addCat(v){ ui.tray.push({label:L().cat[v], foodId:null, items:[{cat:v, g:CATS[v].def}]}); ui.query = ''; const q = document.getElementById('q'); if (q) q.value = ''; refreshSheetParts(); },
+  trayDel(_, el){ ui.tray.splice(+el.dataset.i, 1); refreshSheetParts(); },
+  step(v, el){ const it = ui.tray[+el.dataset.i].items[+el.dataset.j], st = CATS[it.cat].step; it.g = Math.max(st, Math.min(2000, Math.round((it.g + st * +v) / st) * st)); refreshSheetParts(); },
+  saveTray(){
+    if (!ui.tray.length) return;
+    const ts = Date.now();
+    ui.tray.forEach((t,i) => { const items = t.items.filter(it => it.g > 0); if (items.length) S.entries.push({id:uid(), date:ui.logDate, ts:ts + i, label:t.label, foodId:t.foodId, items}); });
+    save(); ui.sheet = null; ui.tray = []; ui.justLogged = true; ui.tab = 'home'; render(); toast(L().saved);
+    setTimeout(() => { if (ui.justLogged) { ui.justLogged = false; if (ui.tab === 'home' && !ui.sheet) render(); } }, 6000);
+  },
+  delEntry(v){ S.entries = S.entries.filter(e => e.id !== v); if (S.lostSeen > coach().idx) S.lostSeen = coach().idx; save(); render(); toast(L().removed); },
+  lossOk(){ S.lostSeen++; save(); render(); },
+  setmode(v){ S.mode = v; save(); render(); },
+  setbase(v){ S.baseline = v; save(); render(); },
+  share(){ shareApp(); },
+  export(){
+    const json = JSON.stringify(S, null, 1);
+    try { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([json], {type:'application/json'})); a.download = `flexi-backup-${today()}.json`; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000); } catch(e){}
+    ui.dump = json; render();
+  },
+  copydata(){ const json = JSON.stringify(S); copyText(json).then(ok => { if (ok) toast(L().dataCopied); else { ui.dump = json; render(); toast(L().copyFail); } }); },
+  importOk(){ const d = ui.importData; ui.importData = null; S = Object.assign(defaults(), d, {onboarded:true}); save(); render(); toast(L().imported); },
+  importCancel(){ ui.importData = null; render(); },
+  reset(){
+    if (!ui.resetArmed) { ui.resetArmed = true; render(); setTimeout(() => { if (ui.resetArmed) { ui.resetArmed = false; if (ui.tab === 'settings') render(); } }, 4000); return; }
+    try { localStorage.removeItem(KEY); } catch(e){}
+    S = defaults(); ui.resetArmed = false; ui.ob = 'welcome'; ui.tab = 'home'; render(); toast(L().resetDone);
+  },
+};
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-act]'); if (!el || el.disabled) return;
+  const fn = ACT[el.dataset.act]; if (fn) { e.preventDefault(); fn(el.dataset.v, el); }
+});
+document.addEventListener('input', e => { if (e.target.id === 'q') { ui.query = e.target.value; const r = document.getElementById('results'); if (r) r.innerHTML = resultsHTML(); } });
+document.addEventListener('change', e => {
+  if (e.target.id !== 'importFile' || !e.target.files[0]) return;
+  const fr = new FileReader();
+  fr.onload = () => { try { const d = JSON.parse(fr.result); if (!valid(d)) throw 0; ui.importData = d; } catch(err){ toast(L().importBad); } render(); };
+  fr.readAsText(e.target.files[0]);
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && ui.sheet) ACT.closeSheet(); });
+
+/* targetSeen: remember the current target once the "new target" message was shown */
+const _coachLine = coachLine;
+coachLine = function(){ const r = _coachLine(); const t = personalTarget(); if (t < (S.targetSeen ?? GUIDE) && r.text === L().msgTargetDown(t)) { setTimeout(() => { S.targetSeen = t; save(); }, 0); } return r; };
+
+/* ------------------------------- PWA ------------------------------- */
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredPrompt = e; render(); });
+window.addEventListener('appinstalled', () => { deferredPrompt = null; render(); });
+try { if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {}); } catch(e){}
+try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); } catch(e){}
+let lastDay = today();
+document.addEventListener('visibilitychange', () => { if (!document.hidden && today() !== lastDay) { lastDay = today(); ui.justLogged = false; render(); } });
+
+render();
+</script>
+
+</body>
+</html>
