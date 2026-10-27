@@ -1,6 +1,6 @@
 // Flexi service worker: keeps the app working offline.
 // Bump VERSION whenever you deploy a change, so phones pick up the new files.
-const VERSION = 'flexi-v1';
+const VERSION = 'flexi-v2';
 const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', e => {

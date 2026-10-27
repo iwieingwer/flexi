@@ -133,7 +133,7 @@ main{flex:1;display:flex;flex-direction:column;gap:14px;padding-block:4px 110px}
 .mark.max span{color:var(--alarm);transform:translateX(calc(-100% + 2px))}
 .mark.goal{border-left-color:var(--calm)}
 .mark.goal span{color:var(--calm)}
-.wk-foot{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:.84rem;color:var(--ink-2)}
+.wk-foot{display:flex;flex-direction:column;align-items:flex-start;gap:2px;font-size:.84rem;color:var(--ink-2)}
 .days{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:4px}
 .day{background:var(--surface-2);border:var(--border-w) solid transparent;border-radius:var(--r-s);padding:8px 2px 6px;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0}
 .day.today{border-color:var(--accent)}
@@ -160,6 +160,7 @@ main{flex:1;display:flex;flex-direction:column;gap:14px;padding-block:4px 110px}
 .sheet-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-block:14px 10px}
 .sheet-head::before{content:"";position:absolute;top:7px;left:calc(50% - 20px);width:40px;height:4px;border-radius:9px;background:var(--line)}
 .sheet-body{overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:14px;padding-block:2px 16px;min-height:0;flex:1}
+.sheet-body > *{flex-shrink:0}
 .sheet-foot{padding-block:10px 14px;border-top:1px solid var(--line)}
 @keyframes up{from{transform:translateY(40%);opacity:0}to{transform:none;opacity:1}}
 @keyframes fade{from{opacity:0}}
@@ -436,7 +437,7 @@ en:{
   lossOk:m=>`Hi, ${m}`,
   insTitle:'Insights',
   weeks8:'Meat per week',
-  chartLegend:'Dashed: upper limit 225 g. Red: 600 g. Sprouts mark weeks under your limit. Lower is better.',
+  chartLegend:'Dashed: recommended limit 225 g. Red: 600 g. Sprouts mark weeks under your limit. Lower is better.',
   avg4:'Average per week, last 4 weeks',
   co2m:'kg CO2e, last 30 days',
   animalsStart:'animals since you started',
@@ -444,8 +445,8 @@ en:{
   you7:'You', atAvg:'Austria',
   vsAtNote:'Austrians ate 58.5 kg of meat per person in 2025, about 1,125 g a week (Statistik Austria).',
   animalsTitle:'Animals behind your food',
-  animalsNote:'Since you started. Rough values: one chicken ≈ 1.3 kg meat, one pig ≈ 80 kg, one cow ≈ 250 kg.',
-  an:{chicken:'Chickens',pig:'Pigs',cattle:'Cattle',sheep:'Sheep',fish:'Fish (rough)',hen:'Laying-hen days'},
+  animalsNote:'Since you started. Rough values: one chicken ≈ 1.3 kg meat, one pig ≈ 80 kg, one cow ≈ 250 kg. A laying hen lays about 300 eggs a year, a dairy cow gives about 22 l of milk a day. A kilo of cheese takes about 10 l of milk.',
+  an:{chicken:'Chickens',pig:'Pigs',cattle:'Cattle',sheep:'Sheep',fish:'Fish (rough)',hen:'Laying-hen days',cow:'Dairy-cow days'},
   co2Title:'CO2 footprint, last 30 days',
   co2From:{meat:'Meat',fish:'Fish',other:'Eggs & dairy',base:'Eggs & dairy (estimate)'},
   co2Total:'Total',
@@ -577,7 +578,7 @@ de:{
   lossOk:m=>`Hallo, ${m}`,
   insTitle:'Statistik',
   weeks8:'Fleisch pro Woche',
-  chartLegend:'Strichliert: Obergrenze 225 g. Rot: 600 g. Sprösslinge zeigen Wochen unter deiner Grenze. Weniger ist besser.',
+  chartLegend:'Strichliert: Empfehlungsgrenze 225 g. Rot: 600 g. Sprösslinge zeigen Wochen unter deiner Grenze. Weniger ist besser.',
   avg4:'Durchschnitt pro Woche, letzte 4 Wochen',
   co2m:'kg CO2e, letzte 30 Tage',
   animalsStart:'Tiere seit Beginn',
@@ -585,8 +586,8 @@ de:{
   you7:'Du', atAvg:'Österreich',
   vsAtNote:'In Österreich wurden 2025 pro Kopf 58,5 kg Fleisch gegessen, etwa 1.125 g pro Woche (Statistik Austria).',
   animalsTitle:'Tiere hinter deinem Essen',
-  animalsNote:'Seit Beginn. Grobe Werte: ein Huhn ≈ 1,3 kg Fleisch, ein Schwein ≈ 80 kg, ein Rind ≈ 250 kg.',
-  an:{chicken:'Hühner',pig:'Schweine',cattle:'Rinder',sheep:'Schafe',fish:'Fische (grob)',hen:'Legehennen-Tage'},
+  animalsNote:'Seit Beginn. Grobe Werte: ein Huhn ≈ 1,3 kg Fleisch, ein Schwein ≈ 80 kg, ein Rind ≈ 250 kg. Eine Legehenne legt etwa 300 Eier im Jahr, eine Milchkuh gibt etwa 22 l Milch am Tag. Für ein Kilo Käse braucht man etwa 10 l Milch.',
+  an:{chicken:'Hühner',pig:'Schweine',cattle:'Rinder',sheep:'Schafe',fish:'Fische (grob)',hen:'Legehennen-Tage',cow:'Milchkuh-Tage'},
   co2Title:'CO2-Fußabdruck, letzte 30 Tage',
   co2From:{meat:'Fleisch',fish:'Fisch',other:'Eier & Milchprodukte',base:'Eier & Milchprodukte (geschätzt)'},
   co2Total:'Gesamt',
@@ -685,6 +686,7 @@ const L = () => T[S.lang] || T.en;
 const numLocale = () => L().locale === 'de-AT' ? 'de-DE' : L().locale;
 const fmt = n => new Intl.NumberFormat(numLocale(), {maximumFractionDigits:0}).format(Math.round(n));
 const fmt1 = n => new Intl.NumberFormat(numLocale(), {maximumFractionDigits:1, minimumFractionDigits:n<10?1:0}).format(n);
+const fmtSmall = n => n >= 1 ? fmt1(n) : n >= 0.01 ? new Intl.NumberFormat(numLocale(), {minimumFractionDigits:2, maximumFractionDigits:2}).format(n) : '< ' + new Intl.NumberFormat(numLocale(), {minimumFractionDigits:2}).format(0.01);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const foodName = f => f[S.lang] || f.en;
 const tracks = cat => S.mode === 'all' || CATS[cat].group !== 'other';
@@ -703,6 +705,7 @@ const dayHas = (k, pred) => S.entries.some(e => e.date === k && e.items.some(it 
 const last7 = (pred=isMeat) => sumRange(addDays(today(),-6), today(), pred);
 const prev7 = (pred=isMeat) => sumRange(addDays(today(),-13), addDays(today(),-7), pred);
 const watched = c => S.mode === 'all' ? true : !isOther(c);
+const startDate = () => S.entries.reduce((m,e) => e.date < m ? e.date : m, S.created);
 
 function personalTarget(){
   let t = GUIDE, w = mondayOf(S.created);
@@ -715,8 +718,8 @@ function personalTarget(){
 }
 function pressure(){ return Math.max(0, Math.min(1, (last7() - GUIDE) / (MAXG - GUIDE))); }
 function streak(){
-  let n = 0, k = addDays(today(), -1);
-  while (k >= S.created && !dayHas(k, watched)) { n++; k = addDays(k, -1); }
+  let n = 0, k = addDays(today(), -1); const st = startDate();
+  while (k >= st && !dayHas(k, watched)) { n++; k = addDays(k, -1); }
   return n;
 }
 function unconfirmed(){
@@ -750,11 +753,12 @@ function co2(from, to){
   return r;
 }
 function animals(){
-  const r = {chicken:0, pig:0, cattle:0, sheep:0, fish:0, hen:0};
+  const r = {chicken:0, pig:0, cattle:0, sheep:0, fish:0, hen:0, cow:0};
   for (const e of S.entries) for (const it of e.items) {
     const c = CATS[it.cat]; if (!c) continue;
     if (c.animal) r[c.animal] += it.g / c.perAnimal;
     if (it.cat === 'egg' && S.mode === 'all') r.hen += (it.g / 60) * 1.2;   // ≈300 eggs a year
+    if (S.mode === 'all' && (it.cat === 'milk' || it.cat === 'cheese')) r.cow += (it.cat === 'milk' ? it.g : it.g * 10) / 22000;   // ≈22 l milk a day, ≈10 l per kg cheese
   }
   return r;
 }
@@ -909,14 +913,15 @@ function listDays(keys){
 function renderHome(){
   const l = L(), c = coach(), line = coachLine(), g = last7(), t = personalTarget();
   const days = Array.from({length:7}, (_,i) => addDays(today(), i - 6));
-  const flowers = days.map(k => k >= S.created ? !dayHas(k, watched) : true);
+  const st = startDate();
+  const flowers = days.map(k => k >= st ? !dayHas(k, watched) : true);
   const fish = last7(isFish), other = S.mode === 'all' ? last7(isOther) : 0;
   const over = g > MAXG;
   const fill = Math.min(g / MAXG, 1.25);
   const un = unconfirmed();
   const strip = days.map(k => {
     const dg = sumRange(k, k, isMeat), df = sumRange(k, k, c => !isMeat(c) && watched(c));
-    const has = dayHas(k, watched), before = k < S.created;
+    const has = dayHas(k, watched), before = k < st;
     const col = has ? `<i class="${dg > GUIDE ? 'hi' : ''}" style="height:${Math.max(6, Math.min(34, (dg + df/3) / 250 * 34))}px"></i>` : (before ? '' : SPROUT);
     return `<button class="day ${k === today() ? 'today' : ''}" data-act="day" data-v="${k}" aria-label="${dayLabel(k)}${has ? ', ' + fmt(dg) + ' g' : ''}">
       <span class="dn">${wd(k)}</span><span class="col">${col}</span><span class="dg">${has ? (dg ? fmt(dg) : '·') : '&nbsp;'}</span></button>`;
@@ -945,7 +950,7 @@ function renderHome(){
         <i class="mark" style="left:${GUIDE/MAXG*100}%"><span>${GUIDE}</span></i>
         <i class="mark max" style="left:100%"><span>${l.max}</span></i>
       </div>
-      <div class="wk-foot"><span>${l.guideline}: ${GUIDE} g. ${l.lowerBetter}</span>${t < GUIDE ? `<span>${l.yourTarget}: ${fmt(t)} g</span>` : ''}${fish ? `<span>${l.plusFish(fmt(fish))}</span>` : ''}${other ? `<span>${l.plusOther(fmt(other))}</span>` : ''}</div>
+      <div class="wk-foot"><span>${l.lowerBetter}</span>${t < GUIDE ? `<span>${l.yourTarget}: ${fmt(t)} g</span>` : ''}${fish ? `<span>${l.plusFish(fmt(fish))}</span>` : ''}${other ? `<span>${l.plusOther(fmt(other))}</span>` : ''}</div>
       <div class="days">${strip}</div>
     </section>
     ${b12Flag() ? `<div class="card note">${I.info}<p>${l.b12}</p></div>` : ''}
@@ -955,8 +960,8 @@ function renderHome(){
 /* ------------------------------- render: insights ------------------------------- */
 function chartSVG(){
   const l = L(), W = 340, H = 236, Lp = 30, R = 6, T = 50, B = 26, pw = W - Lp - R, ph = H - T - B;
-  const cur = mondayOf(today()), tgt = personalTarget();
-  const weeks = Array.from({length:8}, (_,i) => { const m = addDays(cur, -7 * (7 - i)); return {m, g:sumRange(m, addDays(m,6), isMeat), current:i === 7, before:addDays(m,6) < S.created}; });
+  const cur = mondayOf(today()), tgt = personalTarget(), st = startDate();
+  const weeks = Array.from({length:8}, (_,i) => { const m = addDays(cur, -7 * (7 - i)); return {m, g:sumRange(m, addDays(m,6), isMeat), current:i === 7, before:addDays(m,6) < st}; });
   const y = g => T + ph - Math.min(g, MAXG) / MAXG * ph, step = pw / 8, bw = step * 0.56;
   const fmtD = new Intl.DateTimeFormat(l.locale, {day:'numeric', month:'numeric'});
   let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${l.weeks8}">`;
@@ -982,7 +987,7 @@ function chartSVG(){
       }
     }
     if (!w.before && !w.current && w.g <= tgt) {
-      const sy = (w.g > 0 ? base - Math.max(3, base - y(w.g)) : base) - (w.g > 0 ? 14 : 0);
+      const sy = (w.g > 0 ? base - Math.max(3, base - y(w.g)) : base) - (w.g > 0 ? 20 : 0);
       s += `<g transform="translate(${cx-9} ${sy-18})"><path d="M9 18v-7" stroke="var(--calm)" stroke-width="2.2" stroke-linecap="round"/><path d="M9 12c-4 0-6-3-6-6 3 0 6 2 6 6zM9 10c0-3 2-6 6-6 0 4-3 6-6 6z" fill="var(--calm)"/></g>`;
     }
     s += `<text x="${cx}" y="${H-8}" text-anchor="middle" font-size="10" font-weight="700" fill="var(--ink-2)">${w.current ? (S.lang==='de' ? 'jetzt' : 'now') : fmtD.format(parse(w.m))}</text>`;
@@ -991,11 +996,11 @@ function chartSVG(){
 }
 function trendDown(){
   const t = today(), a = sumRange(addDays(t,-27), t, isMeat), b = sumRange(addDays(t,-55), addDays(t,-28), isMeat);
-  return daysBetween(S.created, t) >= 35 && b > 0 && a <= b * 0.8;
+  return daysBetween(startDate(), t) >= 35 && b > 0 && a <= b * 0.8;
 }
 function renderInsights(){
   const l = L(), t = today();
-  const days4 = Math.min(28, daysBetween(S.created, t) + 1);
+  const days4 = Math.min(28, daysBetween(startDate(), t) + 1);
   const avg4 = sumRange(addDays(t, -27), t, isMeat) / Math.max(1, days4) * 7;
   const c = co2(addDays(t, -29), t), a = animals();
   const animalsSum = a.chicken + a.pig + a.cattle + a.sheep + a.fish;
@@ -1004,8 +1009,9 @@ function renderInsights(){
   const fd = new Intl.DateTimeFormat(l.locale, {day:'numeric', month:'short'});
   const run = trendDown() && !ui.ranOnce;
   if (run) ui.ranOnce = true;
-  const anRows = ['chicken','pig','cattle','sheep','fish'].filter(k => a[k] > 0.001).map(k => `<div><dt>${l.an[k]}</dt><dd>${fmt1(a[k])}</dd></div>`).join('') +
-    (a.hen > 0 ? `<div><dt>${l.an.hen}</dt><dd>${fmt(a.hen)}</dd></div>` : '');
+  const anRows = ['chicken','pig','cattle','sheep','fish'].filter(k => a[k] > 0).map(k => `<div><dt>${l.an[k]}</dt><dd>${fmtSmall(a[k])}</dd></div>`).join('') +
+    (a.hen > 0 ? `<div><dt>${l.an.hen}</dt><dd>${fmtSmall(a.hen)}</dd></div>` : '') +
+    (a.cow > 0 ? `<div><dt>${l.an.cow}</dt><dd>${fmtSmall(a.cow)}</dd></div>` : '');
   const coRows = ['meat','fish','other','base'].filter(k => c[k] > 0.05).map(k => `<div><dt>${l.co2From[k]}</dt><dd>${fmt1(c[k])} kg</dd></div>`).join('');
   return `
     <h1 style="font-size:1.9rem;padding:4px 2px 0">${l.insTitle}</h1>
@@ -1151,7 +1157,7 @@ function renderLayer(){
     </div></div>`;
   }
 }
-function amountText(cat, g){ return cat === 'egg' ? L().eggUnit(Math.round(g / 60 * 10) / 10) : `${fmt(g)} ${CATS[cat].unit === 'ml' ? 'ml' : 'g'}`; }
+function amountText(cat, g){ return cat === 'egg' && g % 60 === 0 ? L().eggUnit(g / 60) : `${fmt(g)} ${CATS[cat].unit === 'ml' ? 'ml' : 'g'}`; }
 function itemsText(items){ return items.map(it => `${L().catShort[it.cat]} ${amountText(it.cat, it.g)}`).join(' · '); }
 function norm(s){ return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/ß/g,'ss'); }
 function visibleFoods(){ return FOODS.filter(f => f.items.some(([c]) => tracks(c))); }
